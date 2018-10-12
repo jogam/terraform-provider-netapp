@@ -22,10 +22,17 @@ func Provider() terraform.ResourceProvider {
 				Description: "The user password for NetApp ONTAP API.",
 			},
 
-			"netapp_host": &schema.Schema{
+			"host": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("NETAPP_HOST", nil),
+				Description: "The NetApp host FQDN/IP for NetApp ONTAP API.",
+			},
+
+			"nmsdk_root_path": &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("NETAPP_MSDK_ROOT_PATH", nil),
 				Description: "The NetApp host FQDN/IP for NetApp ONTAP API.",
 			},
 			// "allow_unverified_ssl": &schema.Schema {
@@ -36,12 +43,19 @@ func Provider() terraform.ResourceProvider {
 			// },
 		},
 
-		ResourcesMap: map[string]*schema.Resource{},
+		ResourcesMap: map[string]*schema.Resource{
+			"netapp_key_value": resourceNetappKeyValue(),
+		},
 
 		ConfigureFunc: configureProvider,
 	}
 }
 
 func configureProvider(d *schema.ResourceData) (interface{}, error) {
-	return nil, nil
+	c, err := NewConfig(d)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
