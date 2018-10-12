@@ -12,6 +12,7 @@ website/.bundle
 website/build
 website/node_modules
 .vagrant/
+.venv/
 *.backup
 ./*.tfstate
 .terraform/
@@ -24,7 +25,14 @@ website/node_modules
 *.test
 *.iml
 
+# Byte-compiled / optimized / DLL files
+netapp/python/**/__pycache__/
+*.py[cod]
+
+
 website/vendor
+netapp/external/netapp_sdk
+
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate

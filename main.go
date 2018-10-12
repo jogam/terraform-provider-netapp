@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/hashicorp/terraform/plugin"
-	"github.com/terraform-providers/terraform-provider-template/template"
+	"github.com/jogam/terraform-provider-netapp/netapp"
 )
 
 func main() {
 	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: template.Provider})
+		ProviderFunc: netapp.Provider})
 }
