@@ -33,8 +33,16 @@ func Provider() terraform.ResourceProvider {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("NETAPP_MSDK_ROOT_PATH", nil),
-				Description: "The NetApp host FQDN/IP for NetApp ONTAP API.",
+				Description: "The path to the NetApp Manageability SDK root folder",
 			},
+
+			"api_folder": &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("NETAPP_API_FOLDER", nil),
+				Description: "Path to folder where the NetApp api should be unpacked.",
+			},
+
 			// "allow_unverified_ssl": &schema.Schema {
 			// 	Type:        schema.TypeBool,
 			// 	Optional:    true,

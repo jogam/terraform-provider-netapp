@@ -9,6 +9,7 @@ type Config struct {
 	Password string
 	Host     string
 	SdkRoot  string
+	ApiPath  string
 }
 
 // NewConfig returns a new Config from the supplied ResourceData
@@ -18,6 +19,7 @@ func NewConfig(d *schema.ResourceData) (*Config, error) {
 		Password: d.Get("password").(string),
 		Host:     d.Get("host").(string),
 		SdkRoot:  d.Get("nmsdk_root_path").(string),
+		ApiPath:  d.Get("api_folder").(string),
 	}
 
 	return c, nil

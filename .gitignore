@@ -28,7 +28,7 @@ website/node_modules
 # Byte-compiled / optimized / DLL files
 netapp/python/**/__pycache__/
 *.py[cod]
-
+snippets/
 
 website/vendor
 netapp/external/netapp_sdk

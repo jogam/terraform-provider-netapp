@@ -231,6 +231,12 @@
 			"revisionTime": "2018-07-15T01:52:53Z"
 		},
 		{
+			"checksumSHA1": "CSPbwbyzqA6sfORicn4HFtIhF/c=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "d8f796af33cc11cb798c1aaeb27a4ebc5099927d",
+			"revisionTime": "2018-08-30T19:11:22Z"
+		},
+		{
 			"checksumSHA1": "HbOJxa+FsQ1TTsF+BkHAvzqqZv4=",
 			"path": "github.com/fatih/color",
 			"revision": "2d684516a8861da43017284349b7e303e809ac21",
@@ -241,6 +247,12 @@
 			"path": "github.com/go-ini/ini",
 			"revision": "7b294651033cd7d9e7f0d9ffa1b75ed1e198e737",
 			"revisionTime": "2018-09-30T17:34:52Z"
+		},
+		{
+			"checksumSHA1": "GIaTlYXPnioIh7fkBEUnCfOBaPI=",
+			"path": "github.com/gobuffalo/packr",
+			"revision": "5a2cbb54c4e7d482e3f518c56f1f86f133d5204f",
+			"revisionTime": "2018-09-24T03:11:23Z"
 		},
 		{
 			"checksumSHA1": "GaJLoEuMGnP5ofXvuweAI4wx06U=",
@@ -591,6 +603,12 @@
 			"revisionTime": "2018-02-06T20:15:40Z"
 		},
 		{
+			"checksumSHA1": "r6ZMyP/HsdeToXIxvgP3ntL6Bds=",
+			"path": "github.com/konsorten/go-windows-terminal-sequences",
+			"revision": "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242",
+			"revisionTime": "2018-10-04T22:41:46Z"
+		},
+		{
 			"checksumSHA1": "iRRp6PUlGXJgudZ3FD5jySI0Ukk=",
 			"path": "github.com/mattn/go-colorable",
 			"revision": "efa589957cd060542a26d2dd7832fd6a6c6c3ade",
@@ -657,6 +675,18 @@
 			"revisionTime": "2018-03-08T00:51:04Z"
 		},
 		{
+			"checksumSHA1": "DTy0iJ2w5C+FDsN9EnzfhNmvS+o=",
+			"path": "github.com/pkg/errors",
+			"revision": "2233dee583dcf88f3c8b22cb7a33f05a499800d8",
+			"revisionTime": "2018-10-08T04:53:15Z"
+		},
+		{
+			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
+			"path": "github.com/pmezard/go-difflib/difflib",
+			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",
+			"revisionTime": "2016-01-10T10:55:54Z"
+		},
+		{
 			"checksumSHA1": "eU6C18oR9hAHGe/MBMYmMjBQ8r8=",
 			"path": "github.com/posener/complete",
 			"revision": "0d98d7ee195f007b3453c002780ed80c76e7c806",
@@ -679,6 +709,24 @@
 			"path": "github.com/posener/complete/match",
 			"revision": "0d98d7ee195f007b3453c002780ed80c76e7c806",
 			"revisionTime": "2018-09-10T08:07:58Z"
+		},
+		{
+			"checksumSHA1": "87vhI0ZIfsC9nDcXVnhUJXaOweQ=",
+			"path": "github.com/sirupsen/logrus",
+			"revision": "458213699411cdceb6fd839a3178be49c01fba54",
+			"revisionTime": "2018-10-10T20:06:18Z"
+		},
+		{
+			"checksumSHA1": "v3LEmqP4Cb6qGCIP7mJk7l2ZXw8=",
+			"path": "github.com/stretchr/testify/assert",
+			"revision": "04af85275a5c7ac09d16bb3b9b2e751ed45154e5",
+			"revisionTime": "2018-10-09T18:43:15Z"
+		},
+		{
+			"checksumSHA1": "3DvkGtpbJW8oXepRr3wYSs72LmQ=",
+			"path": "github.com/stretchr/testify/require",
+			"revision": "04af85275a5c7ac09d16bb3b9b2e751ed45154e5",
+			"revisionTime": "2018-10-09T18:43:15Z"
 		},
 		{
 			"checksumSHA1": "amJo1E3F0QxcfxSt+FxDiQbR1wU=",
@@ -801,6 +849,12 @@
 			"revisionTime": "2018-09-26T22:24:25Z"
 		},
 		{
+			"checksumSHA1": "BGm8lKZmvJbf/YOJLeL1rw2WVjA=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb",
+			"revisionTime": "2018-10-15T00:23:17Z"
+		},
+		{
 			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",
 			"path": "golang.org/x/net/context",
 			"revision": "f5e5bdd778241bfefa8627f7124c39cd6ad8d74f",
@@ -859,6 +913,12 @@
 			"path": "golang.org/x/sys/unix",
 			"revision": "af653ce8b74f808d092db8ca9741fbb63d2a469d",
 			"revisionTime": "2018-10-03T14:28:42Z"
+		},
+		{
+			"checksumSHA1": "Y7nctMxT58lRM78VtElPerhcnEs=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "fa43e7bc11baaae89f3f902b2b4d832b68234844",
+			"revisionTime": "2018-10-11T14:35:51Z"
 		},
 		{
 			"checksumSHA1": "CbpjEkkOeh0fdM/V8xKDdI0AA88=",
