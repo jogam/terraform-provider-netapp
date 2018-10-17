@@ -216,17 +216,6 @@ func CreateAPI(folder string, sdkroot string) (*NetAppAPI, error) {
 
 	log.Info("client plugin interface taken")
 
-	err = kv.Put("API_TEST", "testValue123")
-	if err != nil {
-		log.Errorf("API PUT Error: %v", err.Error())
-	}
-
-	result, err := kv.Get("API_TEST")
-	if err != nil {
-		log.Errorf("API GET Error:", err.Error())
-	}
-	log.Infof("GET returned: %v", result)
-
 	return &NetAppAPI{
 		pythonapi:  kv,
 		client:     client,

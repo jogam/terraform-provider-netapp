@@ -2,7 +2,6 @@ package netapp
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -38,19 +37,24 @@ func resourceNetappKeyValueCreate(d *schema.ResourceData, meta interface{}) erro
 	key := d.Get("key").(string)
 	value := d.Get("value").(string)
 
-	d.SetId(strings.Join([]string{key, value}, ":"))
+	api := meta.(*NetAppClient).Api
+	if err := api.Put(key, value); err != nil {
+		return err
+	}
+
+	d.SetId(key)
+
 	return resourceNetappKeyValueRead(d, meta)
 }
 
 func resourceNetappKeyValueRead(d *schema.ResourceData, meta interface{}) error {
-	parts := strings.Split(d.Id(), ":")
-	if len(parts) != 2 {
-		return fmt.Errorf("Resource ID misformed: %s", d.Id())
+	api := meta.(*NetAppClient).Api
+	value, err := api.Get(d.Id())
+	if err != nil {
+		return err
 	}
 
-	key, value := parts[0], parts[1]
-
-	d.Set("key", key)
+	d.Set("key", d.Id())
 	d.Set("value", value)
 
 	return nil

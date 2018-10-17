@@ -16,9 +16,9 @@ pid_file="./python_api.pid"
 api_sd_file="./shut_api"
 
 
-# create shutdown file and wait for 10s
+# create shutdown file and wait until deleted
 touch $api_sd_file
-sleep 10
+while [ -f api_sd_file ]; do sleep 1; done
 
 # check if python api PID file exists
 if [[ -f $pid_file ]]

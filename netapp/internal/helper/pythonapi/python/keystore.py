@@ -1,7 +1,7 @@
 # test implementation of key store
 
 import logging
-import os.path
+import os
 
 from concurrent import futures
 import sys
@@ -64,9 +64,10 @@ def serve(host='127.0.0.1', port='1234'):
     try:
         while True:
             if os.path.isfile(SHUTDOWN_FILE):
+                os.remove(SHUTDOWN_FILE)
                 break
 
-            time.sleep(5)
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         pass

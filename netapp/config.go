@@ -1,8 +1,15 @@
 package netapp
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
 )
+
+type NetAppClient struct {
+	Api *pythonapi.NetAppAPI
+}
 
 type Config struct {
 	User     string
@@ -23,4 +30,17 @@ func NewConfig(d *schema.ResourceData) (*Config, error) {
 	}
 
 	return c, nil
+}
+
+func (c *Config) Client() (*NetAppClient, error) {
+	api, err := pythonapi.CreateAPI(c.ApiPath, c.SdkRoot)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating python NetApp API: %s", err)
+	}
+
+	client := &NetAppClient{
+		Api: api,
+	}
+
+	return client, nil
 }
