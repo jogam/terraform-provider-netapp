@@ -2,10 +2,10 @@ package pythonapi
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
-
-	"net"
 
 	"context"
 
@@ -102,18 +102,13 @@ var requiredAPIScripts = []string{
 	"if_vlan_get.py",
 }
 
-func apiUp(port string) bool {
-	// connect to port without timeout and close immediately
-	conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", port))
-	if conn != nil {
-		defer conn.Close()
+func apiUp(apiFolder string) bool {
+	if _, err := os.Stat(filepath.Join(
+		apiFolder, "API_UP")); !os.IsNotExist(err) {
+		return true
 	}
 
-	if err != nil {
-		log.Debugf("apiUP test returned error: %v", err.Error())
-	}
-
-	return conn != nil && err == nil
+	return false
 }
 
 func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error {
@@ -155,9 +150,8 @@ func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error
 // CreateAPI TODO: doc for create API call
 func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error) {
 
-	// check if API is already running on specified port
-	// NOTE: that might backfire if user provides port that is used otherwise
-	apiRunning := apiUp(apiport)
+	// check if API is already running via running file
+	apiRunning := apiUp(folder)
 
 	// synchronize the packr / python source files to OS filesystem / API folder
 	syncResult, err := SynchBoxToOS(folder, &requiredAPIScripts)

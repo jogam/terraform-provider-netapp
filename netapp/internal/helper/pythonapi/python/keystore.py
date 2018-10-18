@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 
 LOCALHOST = "172.0.0.1"
-CHECK_TIMEOUT = 0.5             # check if api is being used every 0.5 seconds
+CHECK_TIMEOUT = 0.5             # check if api is being used every 500ms
 RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc server is up
 SHUTDOWN_FILE = "./shut_api"    # file flagging to service to shutdown...
 
@@ -85,16 +85,12 @@ class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
 
         return keystore_pb2.Empty()
 
-def api_up(host, port):
-    connected = False
-    apiport = int(port)
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
-        sock.settimeout(0.4)    # 400 ms timeout here
-        errno = sock.connect_ex((host, apiport))
-        logging.debug('sock.connect returned: %d', errno)
-        connected = (errno == 0)
-
-    return connected
+def notify_grpc(host, port):
+    # send stdout msg for go-plugin to understand...
+    grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
+    logging.info("GRPC message: %s", grpc_msg)
+    print(grpc_msg)
+    sys.stdout.flush()
 
 def serve(host='127.0.0.1', port='1234'):
 
@@ -117,11 +113,8 @@ def serve(host='127.0.0.1', port='1234'):
     server.add_insecure_port(host + ':' + port)
     server.start()
 
-    # send stdout msg for go-plugin to understand...
-    grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
-    logging.info("GRPC message: %s", grpc_msg)
-    print(grpc_msg)
-    sys.stdout.flush()
+    # let GRPC know we are here and good...
+    notify_grpc(host, port)
 
     # create running status file
     with open(RUNNING_FILE, 'a'):
@@ -139,7 +132,7 @@ def serve(host='127.0.0.1', port='1234'):
             
             logging.debug("was needed %d times, looping...", call_cnt)
 
-            if os.path.isfile(SHUTDOWN_FILE):
+            if os.path.exists(SHUTDOWN_FILE):
                 logging.debug('received shutdown file trigger')
                 os.remove(SHUTDOWN_FILE)
                 break
@@ -172,10 +165,15 @@ if __name__ == '__main__':
 
     # retrieve parameters
     api_port = sys.argv[1]
-    if api_up(LOCALHOST, api_port):
+    if os.path.exists(RUNNING_FILE):
         # alreay running, lets do something ugly
-        # TODO: use ReattachConfig from GRPC instead?
         logging.warn('netapp API already running, doing file waiting...')
+
+        # let GRPC know we are here and good...
+        notify_grpc(LOCALHOST, api_port)
+
+        # WAIT for running file to disappear, **shudder**
+        # TODO: use ReattachConfig from GRPC instead?
         while os.path.exists(RUNNING_FILE):
             time.sleep(CHECK_TIMEOUT)
     else:
