@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from multiprocessing import Manager
+from multiprocessing import Value, Lock
 import socket
 from contextlib import closing
 
@@ -25,25 +25,52 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 logging.basicConfig(
     filename='python_api.log',
     level=logging.DEBUG,
-    format='[%(asctime)s %(levelname)s] @{%(name)s:%(lineno)d} - %(message)s')
+    format=(
+        '[%(asctime)s %(levelname)s][' + str(os.getpid()) 
+        + '] @{%(lineno)d} - %(message)s')
+)
 
 LOCALHOST = "172.0.0.1"
 CHECK_TIMEOUT = 0.5             # check if api is being used every 0.5 seconds
 RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc server is up
 SHUTDOWN_FILE = "./shut_api"    # file flagging to service to shutdown...
 
+
+class CallCounter(object):
+    '''
+    multiprocessing/threading save counter
+    inspired by: https://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing
+    '''
+
+    def __init__(self, initval=0):
+        self.val = Value('i', initval)
+        self.lock = Lock()
+
+    def increment(self):
+        with self.lock:
+            self.val.value += 1
+
+    def value(self):
+        with self.lock:
+            return self.val.value
+
+    def reset(self, initval=0):
+        with self.lock:
+            self.val.value = initval
+
+
 class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
     """Implementation of KV service."""
 
-    def __init__(self, sema, *args, **kwargs):
+    def __init__(self, counter, *args, **kwargs):
         super(KeyStoreServicer, self).__init__(*args, **kwargs)
-        self.sema = sema
-        logging.debug("servicer initialized with semaphore")
+        self.counter = counter
+        logging.debug("servicer initialized with call counter")
 
     def Get(self, request, context):
         filename = "kv_"+request.key
         logging.debug("GET request: " + request.key)
-        self.sema.release()
+        self.counter.increment()
         with open(filename, 'r') as f:
             result = keystore_pb2.GetResponse()
             result.value = f.read()
@@ -52,7 +79,7 @@ class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
     def Put(self, request, context):
         logging.debug("PUT request: " + request.key + " = " + request.value)
         filename = "kv_"+request.key
-        self.sema.release()
+        self.counter.increment()
         with open(filename, 'w') as f:
             f.write(request.value)
 
@@ -62,20 +89,20 @@ def api_up(host, port):
     connected = False
     apiport = int(port)
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
-        sock.settimeout(0.1)    # 100 ms timeout here
-        if sock.connect_ex((host, apiport)) == 0:
-            connected = True
+        sock.settimeout(0.4)    # 400 ms timeout here
+        errno = sock.connect_ex((host, apiport))
+        logging.debug('sock.connect returned: %d', errno)
+        connected = (errno == 0)
 
     return connected
 
 def serve(host='127.0.0.1', port='1234'):
 
-    # abuse a Semaphore as shutdown counter
-    manager = Manager()
-    sema = manager.Semaphore()
+    # create a call counter for call to API
+    call_counter = CallCounter(initval=1)
 
     # create the servicer with this semaphore
-    servicer = KeyStoreServicer(sema)
+    servicer = KeyStoreServicer(call_counter)
 
     # We need to build a health service to work with go-plugin
     health = HealthServicer()
@@ -103,21 +130,22 @@ def serve(host='127.0.0.1', port='1234'):
     logging.debug('running file created')
 
     try:
-        while sema.acquire(timeout=CHECK_TIMEOUT):
+        while call_counter.value() > 0:
+            # get the number of calls
+            # NOTE: first run will be 1 to not step out
+            call_cnt = call_counter.value()
+            # reset count calls (NOTE: to 0!)
+            call_counter.reset()
+            
+            logging.debug("was needed %d times, looping...", call_cnt)
+
             if os.path.isfile(SHUTDOWN_FILE):
+                logging.debug('received shutdown file trigger')
                 os.remove(SHUTDOWN_FILE)
                 break
 
-            # wait for another CHECK_TIMEOUT
+            # wait for CHECK_TIMEOUT to receive calls
             time.sleep(CHECK_TIMEOUT)
-
-            # purge semaphore and count calls
-            # NOTE: purge so that only another call will
-            call_cnt = 1
-            while sema.acquire(False):
-                call_cnt += 1
-
-            logging.debug("was needed %d times, looping...", call_cnt)
 
     except KeyboardInterrupt:
         pass

@@ -1,6 +1,7 @@
 package pythonapi
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -39,14 +40,14 @@ func Test_Python_Api_MultiCreate(t *testing.T) {
 	rwTest(api, r, "testy-multi", "testing")
 
 	// create more
-	for i := 0; i < 5; i++ {
+	for i := 1; i < 6; i++ {
 		addapi, err := CreateAPI(tmpDir, "", "1234")
 		r.NoError(err)
 
-		rwTest(addapi, r, "testy-multi-"+string(i), "testing-"+string(i))
+		rwTest(addapi, r, fmt.Sprintf("testy-multi-%d", i), fmt.Sprintf("testing-%d", i))
 
-		err = addapi.Stop()
-		r.NoError(err)
+		// err = addapi.Stop()
+		// r.NoError(err)
 	}
 
 	err = api.Stop()

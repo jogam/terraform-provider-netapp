@@ -116,17 +116,14 @@ func apiUp(port string) bool {
 	return conn != nil && err == nil
 }
 
-func ensureApiSetup(
-	folder string,
-	sdkroot string,
-	apiport string) (*SyncResult, error) {
+func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error {
 
 	// check python version
 	out, err := exec.Command("sh", "-c",
 		"python -c 'import sys; print(sys.version_info[:])'").Output()
 	if err != nil {
 		log.Errorf("failed to execute python version command, Python installed?")
-		return nil, err
+		return err
 	}
 	log.Infof("python version: %v", string(out))
 
@@ -134,42 +131,42 @@ func ensureApiSetup(
 	out, err = exec.Command("sh", "-c", "virtualenv --version").Output()
 	if err != nil {
 		log.Errorf("failed to execute virtualenv version command, virtualenv installed?")
-		return nil, err
+		return err
 	}
 	log.Infof("virtualenv version: %v", string(out))
-
-	syncResult, err := SynchBoxToOS(folder, &requiredAPIScripts)
-	if err != nil {
-		return nil, err
-	}
 
 	// get the setup script path
 	setupFilePath, err := syncResult.GetFilePath("scripts/setup_virtualenv.sh")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// execute API virtualenv setup and requirements install
 	out, err = exec.Command("sh", "-c",
-		fmt.Sprintf("%v %v %v", setupFilePath, folder, apiport)).Output()
+		fmt.Sprintf("%v %v", setupFilePath, folder)).Output()
 	if err != nil {
 		log.Errorf("could not setup virtualenv, got: %v", err)
-		return nil, err
+		return err
 	}
 	log.Infof("virtualenv setup returned: %v", string(out))
 
-	return syncResult, nil
+	return nil
 }
 
 // CreateAPI TODO: doc for create API call
 func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error) {
 
+	// check if API is already running on specified port
+	// NOTE: that might backfire if user provides port that is used otherwise
 	apiRunning := apiUp(apiport)
 
-	var syncResult *SyncResult
-	var err error
+	// synchronize the packr / python source files to OS filesystem / API folder
+	syncResult, err := SynchBoxToOS(folder, &requiredAPIScripts)
+	if err != nil {
+		return nil, err
+	}
+
 	if !apiRunning {
-		syncResult, err = ensureApiSetup(folder, sdkroot, apiport)
-		if err != nil {
+		if err = ensureAPISetup(folder, sdkroot, syncResult); err != nil {
 			return nil, err
 		}
 	}
