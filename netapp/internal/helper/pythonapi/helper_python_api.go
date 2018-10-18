@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"sync"
 
+	"net"
+
 	"context"
 
 	log "github.com/sirupsen/logrus"
@@ -100,8 +102,24 @@ var requiredAPIScripts = []string{
 	"if_vlan_get.py",
 }
 
-// CreateAPI TODO: doc for create API call
-func CreateAPI(folder string, sdkroot string) (*NetAppAPI, error) {
+func apiUp(port string) bool {
+	// connect to port without timeout and close immediately
+	conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", port))
+	if conn != nil {
+		defer conn.Close()
+	}
+
+	if err != nil {
+		log.Debugf("apiUP test returned error: %v", err.Error())
+	}
+
+	return conn != nil && err == nil
+}
+
+func ensureApiSetup(
+	folder string,
+	sdkroot string,
+	apiport string) (*SyncResult, error) {
 
 	// check python version
 	out, err := exec.Command("sh", "-c",
@@ -132,44 +150,30 @@ func CreateAPI(folder string, sdkroot string) (*NetAppAPI, error) {
 	}
 	// execute API virtualenv setup and requirements install
 	out, err = exec.Command("sh", "-c",
-		fmt.Sprintf("%v %v", setupFilePath, folder)).Output()
+		fmt.Sprintf("%v %v %v", setupFilePath, folder, apiport)).Output()
 	if err != nil {
 		log.Errorf("could not setup virtualenv, got: %v", err)
 		return nil, err
 	}
 	log.Infof("virtualenv setup returned: %v", string(out))
 
-	/* 	for _, prjFile := range prjFileResults {
-	   		if prjFile.BoxPath == "__init__.py" {
-	   			// read version number
-	   			versionBytes, err := ioutil.ReadFile(prjFile.FilePath)
-	   			if err != nil {
-	   				log.Errorf("could not read API version from file [%v]", prjFile.FilePath)
-	   			}
+	return syncResult, nil
+}
 
-	   			versionStr := string(versionBytes)
-	   			log.Infof("API version content: %v", versionStr)
-	   		}
+// CreateAPI TODO: doc for create API call
+func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error) {
 
-	   		if filepath.Ext(prjFile.BoxPath) == ".py" {
-	   			// got a python file lets replace the sdkroot in the file
-	   			fileBytes, err := ioutil.ReadFile(prjFile.FilePath)
-	   			if err != nil {
-	   				return nil, err
-	   			}
+	apiRunning := apiUp(apiport)
 
-	   			re := regexp.MustCompile("LATER")
-	   			fileBytes = re.ReplaceAll(fileBytes, []byte(sdkroot))
-	   			err = ioutil.WriteFile(prjFile.FilePath, fileBytes, os.ModePerm)
-	   			if err != nil {
-	   				return nil, err
-	   			}
+	var syncResult *SyncResult
+	var err error
+	if !apiRunning {
+		syncResult, err = ensureApiSetup(folder, sdkroot, apiport)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	   		}
-	   	}
-	*/
-
-	// if we don't want to see the plugin logs.
 	//log.SetOutput(ioutil.Discard)
 
 	// get the api startup script
@@ -183,8 +187,8 @@ func CreateAPI(folder string, sdkroot string) (*NetAppAPI, error) {
 		HandshakeConfig: Handshake,
 		Plugins:         PluginMap,
 		Cmd: exec.Command("sh", "-c",
-			fmt.Sprintf("%v %v %v",
-				startupFilePath, folder, "keystore.py")),
+			fmt.Sprintf("%v %v %v %v",
+				startupFilePath, folder, "keystore.py", apiport)),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 

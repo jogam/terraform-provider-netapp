@@ -12,7 +12,7 @@ func setup() {
 }
 
 func tearDown() {
-	DirDeleteRecursive(tmpDir)
+	//DirDeleteRecursive(tmpDir)
 }
 
 func TestMain(m *testing.M) {
