@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from multiprocessing import Value, Lock
+from multiprocessing import Event
 import socket
 from contextlib import closing
 
@@ -12,6 +12,13 @@ from contextlib import closing
 from concurrent import futures
 import sys
 import time
+
+from util import (
+    RegistryServer, 
+    ClientStatus, 
+    ApiStatus,
+    CallCounter
+)
 
 import grpc
 
@@ -31,45 +38,21 @@ logging.basicConfig(
 )
 
 LOCALHOST = "172.0.0.1"
-CHECK_TIMEOUT = 0.5             # check if api is being used every 500ms
+CHECK_TIMEOUT = 0.8             # check if api is being used every 800ms
 RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc server is up
-SHUTDOWN_FILE = "./shut_api"    # file flagging to service to shutdown...
-
-
-class CallCounter(object):
-    '''
-    multiprocessing/threading save counter
-    inspired by: https://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing
-    '''
-
-    def __init__(self, initval=0):
-        self.val = Value('i', initval)
-        self.lock = Lock()
-
-    def increment(self):
-        with self.lock:
-            self.val.value += 1
-
-    def value(self):
-        with self.lock:
-            return self.val.value
-
-    def reset(self, initval=0):
-        with self.lock:
-            self.val.value = initval
-
 
 class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
     """Implementation of KV service."""
 
-    def __init__(self, counter, *args, **kwargs):
+    def __init__(self, registry, counter, *args, **kwargs):
         super(KeyStoreServicer, self).__init__(*args, **kwargs)
+        self.registry = registry
         self.counter = counter
         logging.debug("servicer initialized with call counter")
 
     def Get(self, request, context):
         filename = "kv_"+request.key
-        logging.debug("GET request: " + request.key)
+        logging.debug("GET request: %s", request.key)
         self.counter.increment()
         with open(filename, 'r') as f:
             result = keystore_pb2.GetResponse()
@@ -77,7 +60,7 @@ class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
             return result
 
     def Put(self, request, context):
-        logging.debug("PUT request: " + request.key + " = " + request.value)
+        logging.debug("PUT request: %s = %s", request.key, request.value)
         filename = "kv_"+request.key
         self.counter.increment()
         with open(filename, 'w') as f:
@@ -85,20 +68,85 @@ class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
 
         return keystore_pb2.Empty()
 
-def notify_grpc(host, port):
+    def Shutdown(self, request, context):
+        logging.debug("SD request for client: %s", request.clientid)
+        success = self.registry.set_client_status(
+            request.clientid,
+            ClientStatus.shutdown)
+        resp = keystore_pb2.ShutdownResponse()
+        resp.result = success
+        return resp
+
+def notify_grpc(client_id, registry):
     # send stdout msg for go-plugin to understand...
-    grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
-    logging.info("GRPC message: %s", grpc_msg)
+    grpc_msg = registry.get_grpc_msg()
+    logging.info("client [%s] gRPC message: %s", client_id, grpc_msg)
     print(grpc_msg)
     sys.stdout.flush()
 
-def serve(host='127.0.0.1', port='1234'):
+def register_client(registry, client_id):
+    if not registry.register_client(client_id, ClientStatus.running):
+        logging.error(
+            'netapp API could not register client: %s', client_id)
+        return False
+
+    return True
+
+def unregister_client(registry, client_id):
+    status = registry.unregister_client(client_id)
+    if ClientStatus.is_error(status):
+        logging.error(
+            'registry unregister client status error: %s', status.value)
+        return False
+
+    return True
+
+def serve(client_id, host='127.0.0.1', port='1234'):
+
+    # create client registry server
+    serv_event = Event()
+    reg_server = RegistryServer(serv_event)
+    reg_server.start()
+
+    while not serv_event.is_set():
+        serv_event.wait(1)
+    serv_event.clear()
+
+    # create client registry
+    registry = RegistryServer.GET_CLIENT_REGISTRY()
 
     # create a call counter for call to API
     call_counter = CallCounter(initval=1)
 
     # create the servicer with this semaphore
-    servicer = KeyStoreServicer(call_counter)
+    servicer = KeyStoreServicer(registry, call_counter)
+
+    # generate gRPC connection message and store in registry
+    grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
+    if not registry.set_grpc_msg(grpc_msg):
+        logging.error('could not set gRPC message in registry')
+
+        registry.shutdown()
+
+        while not serv_event.is_set():
+            serv_event.wait(1)
+
+        reg_server.terminate()
+        reg_server.join()
+        sys.exit(1)
+
+    # register client
+    if not register_client(registry, client_id):
+        logging.error('register server start client in registry')
+
+        registry.shutdown()
+
+        while not serv_event.is_set():
+            serv_event.wait(1)
+
+        reg_server.terminate()
+        reg_server.join()
+        sys.exit(1)
 
     # We need to build a health service to work with go-plugin
     health = HealthServicer()
@@ -114,9 +162,24 @@ def serve(host='127.0.0.1', port='1234'):
     server.start()
 
     # let GRPC know we are here and good...
-    notify_grpc(host, port)
+    notify_grpc(client_id, registry)
+
+    # set registry status to running
+    if not registry.set_api_status(ApiStatus.running):
+        logging.error('could not set api status in registry')
+
+        server.stop(0)
+        registry.shutdown()
+
+        while not serv_event.is_set():
+            serv_event.wait(1)
+
+        reg_server.terminate()
+        reg_server.join()
+        sys.exit(1)
 
     # create running status file
+    # source: https://stackoverflow.com/a/12654798
     with open(RUNNING_FILE, 'a'):
         os.utime(RUNNING_FILE, None)
 
@@ -132,20 +195,24 @@ def serve(host='127.0.0.1', port='1234'):
             
             logging.debug("was needed %d times, looping...", call_cnt)
 
-            if os.path.exists(SHUTDOWN_FILE):
-                logging.debug('received shutdown file trigger')
-                os.remove(SHUTDOWN_FILE)
-                break
-
             # wait for CHECK_TIMEOUT to receive calls
             time.sleep(CHECK_TIMEOUT)
 
     except KeyboardInterrupt:
         pass
 
-    logging.debug("left while loop, issuing server.stop()")        
+    logging.debug("left while loop, issuing server.stop()")   
+    unregister_client(registry, client_id)
     server.stop(0)
     os.remove(RUNNING_FILE)     # making sure we are not running
+    registry.shutdown()
+
+    # sleep until server indicates shutdown
+    while not serv_event.is_set():
+        serv_event.wait(1)
+
+    reg_server.terminate()
+    reg_server.join()
     logging.debug("exiting netapp API serve()")
 
 
@@ -154,8 +221,8 @@ if __name__ == '__main__':
     # get length of provided arguments after script path
     arg_cnt = len(sys.argv) - 1
 
-    if arg_cnt != 1:
-        logging.error('netapp API must be called as: api.py PORT!')
+    if arg_cnt != 2:
+        logging.error('netapp API must be called as: api.py PORT CLIENTID!')
         sys.exit(1)
 
     parent_pid = os.getppid()
@@ -165,19 +232,46 @@ if __name__ == '__main__':
 
     # retrieve parameters
     api_port = sys.argv[1]
+    client_id = sys.argv[2]
+
     if os.path.exists(RUNNING_FILE):
         # alreay running, lets do something ugly
         logging.warn('netapp API already running, doing file waiting...')
 
-        # let GRPC know we are here and good...
-        notify_grpc(LOCALHOST, api_port)
+        # get client registry and verify its still in running status
+        registry = RegistryServer.GET_CLIENT_REGISTRY()
+        api_status = registry.get_api_status()
+        if api_status != ApiStatus.running:
+            logging.error('netapp API not running per client registry')
+            sys.exit(1)
 
-        # WAIT for running file to disappear, **shudder**
-        # TODO: use ReattachConfig from GRPC instead?
-        while os.path.exists(RUNNING_FILE):
+        # register client with registry
+        if not register_client(registry, client_id):
+            sys.exit(1)
+
+        # let GRPC know we are here and good...
+        notify_grpc(client_id, registry)
+
+        # wait until client status is shutdown
+        while True:
+            status = registry.get_client_status(client_id)
+            if ClientStatus.is_error(status):
+                logging.error(
+                    'registry get client status error: %s', status.value)
+                break
+            
+            if status == ClientStatus.shutdown:
+                break
+
+            # wait for new calls
             time.sleep(CHECK_TIMEOUT)
+
+        # unregister client from registry
+        unregister_client(registry, client_id)
     else:
         logging.warn('netapp API not running, start server')
-        serve(port=api_port)
+        serve(client_id, port=api_port)
 
-    logging.info('netapp API exiting (PPID, PID): [%d, %d]', parent_pid, api_pid)
+    logging.info(
+        'netapp API [%s] exiting (PPID, PID): [%d, %d]', 
+        client_id, parent_pid, api_pid)

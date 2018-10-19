@@ -24,6 +24,11 @@ class KeyStoreStub(object):
         request_serializer=keystore__pb2.PutRequest.SerializeToString,
         response_deserializer=keystore__pb2.Empty.FromString,
         )
+    self.Shutdown = channel.unary_unary(
+        '/keystore.KeyStore/Shutdown',
+        request_serializer=keystore__pb2.ShutdownRequest.SerializeToString,
+        response_deserializer=keystore__pb2.ShutdownResponse.FromString,
+        )
 
 
 class KeyStoreServicer(object):
@@ -44,6 +49,13 @@ class KeyStoreServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def Shutdown(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_KeyStoreServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -56,6 +68,11 @@ def add_KeyStoreServicer_to_server(servicer, server):
           servicer.Put,
           request_deserializer=keystore__pb2.PutRequest.FromString,
           response_serializer=keystore__pb2.Empty.SerializeToString,
+      ),
+      'Shutdown': grpc.unary_unary_rpc_method_handler(
+          servicer.Shutdown,
+          request_deserializer=keystore__pb2.ShutdownRequest.FromString,
+          response_serializer=keystore__pb2.ShutdownResponse.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

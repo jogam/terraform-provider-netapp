@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='keystore',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0ekeystore.proto\x12\x08keystore\"\x19\n\nGetRequest\x12\x0b\n\x03key\x18\x01 \x01(\t\"\x1c\n\x0bGetResponse\x12\r\n\x05value\x18\x01 \x01(\t\"(\n\nPutRequest\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x07\n\x05\x45mpty2l\n\x08KeyStore\x12\x32\n\x03Get\x12\x14.keystore.GetRequest\x1a\x15.keystore.GetResponse\x12,\n\x03Put\x12\x14.keystore.PutRequest\x1a\x0f.keystore.Emptyb\x06proto3')
+  serialized_pb=_b('\n\x0ekeystore.proto\x12\x08keystore\"\x19\n\nGetRequest\x12\x0b\n\x03key\x18\x01 \x01(\t\"\x1c\n\x0bGetResponse\x12\r\n\x05value\x18\x01 \x01(\t\"(\n\nPutRequest\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"#\n\x0fShutdownRequest\x12\x10\n\x08\x63lientid\x18\x01 \x01(\t\"\"\n\x10ShutdownResponse\x12\x0e\n\x06result\x18\x01 \x01(\x08\"\x07\n\x05\x45mpty2\xaf\x01\n\x08KeyStore\x12\x32\n\x03Get\x12\x14.keystore.GetRequest\x1a\x15.keystore.GetResponse\x12,\n\x03Put\x12\x14.keystore.PutRequest\x1a\x0f.keystore.Empty\x12\x41\n\x08Shutdown\x12\x19.keystore.ShutdownRequest\x1a\x1a.keystore.ShutdownResponseb\x06proto3')
 )
 
 
@@ -125,6 +125,68 @@ _PUTREQUEST = _descriptor.Descriptor(
 )
 
 
+_SHUTDOWNREQUEST = _descriptor.Descriptor(
+  name='ShutdownRequest',
+  full_name='keystore.ShutdownRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='clientid', full_name='keystore.ShutdownRequest.clientid', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=127,
+  serialized_end=162,
+)
+
+
+_SHUTDOWNRESPONSE = _descriptor.Descriptor(
+  name='ShutdownResponse',
+  full_name='keystore.ShutdownResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='result', full_name='keystore.ShutdownResponse.result', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=164,
+  serialized_end=198,
+)
+
+
 _EMPTY = _descriptor.Descriptor(
   name='Empty',
   full_name='keystore.Empty',
@@ -144,13 +206,15 @@ _EMPTY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=127,
-  serialized_end=134,
+  serialized_start=200,
+  serialized_end=207,
 )
 
 DESCRIPTOR.message_types_by_name['GetRequest'] = _GETREQUEST
 DESCRIPTOR.message_types_by_name['GetResponse'] = _GETRESPONSE
 DESCRIPTOR.message_types_by_name['PutRequest'] = _PUTREQUEST
+DESCRIPTOR.message_types_by_name['ShutdownRequest'] = _SHUTDOWNREQUEST
+DESCRIPTOR.message_types_by_name['ShutdownResponse'] = _SHUTDOWNRESPONSE
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -175,6 +239,20 @@ PutRequest = _reflection.GeneratedProtocolMessageType('PutRequest', (_message.Me
   ))
 _sym_db.RegisterMessage(PutRequest)
 
+ShutdownRequest = _reflection.GeneratedProtocolMessageType('ShutdownRequest', (_message.Message,), dict(
+  DESCRIPTOR = _SHUTDOWNREQUEST,
+  __module__ = 'keystore_pb2'
+  # @@protoc_insertion_point(class_scope:keystore.ShutdownRequest)
+  ))
+_sym_db.RegisterMessage(ShutdownRequest)
+
+ShutdownResponse = _reflection.GeneratedProtocolMessageType('ShutdownResponse', (_message.Message,), dict(
+  DESCRIPTOR = _SHUTDOWNRESPONSE,
+  __module__ = 'keystore_pb2'
+  # @@protoc_insertion_point(class_scope:keystore.ShutdownResponse)
+  ))
+_sym_db.RegisterMessage(ShutdownResponse)
+
 Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), dict(
   DESCRIPTOR = _EMPTY,
   __module__ = 'keystore_pb2'
@@ -190,8 +268,8 @@ _KEYSTORE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=136,
-  serialized_end=244,
+  serialized_start=210,
+  serialized_end=385,
   methods=[
   _descriptor.MethodDescriptor(
     name='Get',
@@ -209,6 +287,15 @@ _KEYSTORE = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_PUTREQUEST,
     output_type=_EMPTY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Shutdown',
+    full_name='keystore.KeyStore.Shutdown',
+    index=2,
+    containing_service=None,
+    input_type=_SHUTDOWNREQUEST,
+    output_type=_SHUTDOWNRESPONSE,
     serialized_options=None,
   ),
 ])

@@ -7,48 +7,26 @@ import (
 	"path/filepath"
 	"sync"
 
-	"context"
-
+	"github.com/segmentio/ksuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/hashicorp/go-plugin"
-	"google.golang.org/grpc"
 
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/keystore"
 )
 
-// KV is the interface that we're exposing as a plugin.
-type pythonapi interface {
-	Put(key string, value string) error
-	Get(key string) (string, error)
-}
-
 // NetAppAPI the structure for the Python API interaction
 // to be refined access to Python API
 type NetAppAPI struct {
-	pythonapi
+	keystore.PythonAPI
 	client     *plugin.Client
+	clientID   string
 	apiFiles   *SyncResult
 	status     string
 	statusLock *sync.Mutex
 	root       string
 	Version    string
 }
-
-/* // Get value of given key
-func (api NetAppAPI) Get(key string) (string, error) {
-	data, err := api.Get(key)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
-}
-
-// Put a key value pair to the API
-func (api NetAppAPI) Put(key string, value string) error {
-	return api.Put(key, []byte(value))
-} */
 
 // Stop must be called before API is stopped being used, e.g. plugin shutdown
 func (api NetAppAPI) Stop() error {
@@ -59,36 +37,44 @@ func (api NetAppAPI) Stop() error {
 		return nil
 	}
 
-	err := stopAPI(api.apiFiles, api.root, api.client)
-	if err == nil {
+	succ, err := api.Shutdown(api.clientID)
+	if err == nil && succ {
 		api.status = "STOPPED"
+	} else {
+		log.Errorf("API shutdown returned [%v] with error: %v", succ, err.Error)
+		if !succ {
+			err = fmt.Errorf("API shutdown returned: %v", succ)
+		}
 	}
 
 	api.statusLock.Unlock()
 
+	// kill the underlying client
+	api.client.Kill()
+
 	return err
 }
 
-func stopAPI(apiFiles *SyncResult, folder string, client *plugin.Client) error {
-	// get the setup script path
-	shutdownFilePath, err := apiFiles.GetFilePath("scripts/stop_api.sh")
-	if err != nil {
-		return err
-	}
-	// execute API virtualenv setup and requirements install
-	out, err := exec.Command("sh", "-c",
-		fmt.Sprintf("%v %v", shutdownFilePath, folder)).Output()
-	if err != nil {
-		log.Errorf("could not stop API, got: %v", err)
-		return err
-	}
-	log.Infof("stop API returned:\n%v", string(out))
+// func stopAPI(apiFiles *SyncResult, folder string, client *plugin.Client) error {
+// 	// get the setup script path
+// 	shutdownFilePath, err := apiFiles.GetFilePath("scripts/stop_api.sh")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// execute API virtualenv setup and requirements install
+// 	out, err := exec.Command("sh", "-c",
+// 		fmt.Sprintf("%v %v", shutdownFilePath, folder)).Output()
+// 	if err != nil {
+// 		log.Errorf("could not stop API, got: %v", err)
+// 		return err
+// 	}
+// 	log.Infof("stop API returned:\n%v", string(out))
 
-	// killing the client
-	client.Kill()
+// 	// killing the client
+// 	client.Kill()
 
-	return nil
-}
+// 	return nil
+// }
 
 var requiredAPIScripts = []string{
 	"scripts/setup_virtualenv.sh",
@@ -173,23 +159,28 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 		return nil, err
 	}
 
+	// create unique id for this client
+	// source: https://blog.kowalczyk.info/article/JyRZ/generating-good-unique-ids-in-go.html
+	clientID := ksuid.New().String()
+
 	// start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: Handshake,
-		Plugins:         PluginMap,
+		HandshakeConfig: keystore.Handshake,
+		Plugins:         keystore.PluginMap,
 		Cmd: exec.Command("sh", "-c",
-			fmt.Sprintf("%v %v %v %v",
-				startupFilePath, folder, "keystore.py", apiport)),
+			fmt.Sprintf("%v %v %v %v %v",
+				startupFilePath, folder, "keystore.py", apiport, clientID)),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
-	log.Info("client created")
+	log.Infof("client [%v] created", clientID)
 
 	// Connect via RPC
 	rpcClient, err := client.Client()
 	if err != nil {
 		log.Errorf("Plugin start Error: %v", err.Error())
-		stopAPI(syncResult, folder, client)
+		//stopAPI(syncResult, folder, client)
+		client.Kill()
 		return nil, err
 	}
 
@@ -199,7 +190,9 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 	raw, err := rpcClient.Dispense("kv_grpc")
 	if err != nil {
 		log.Errorf("Plugin dispense Error: %v", err.Error())
-		stopAPI(syncResult, folder, client)
+		//stopAPI(syncResult, folder, client)
+		rpcClient.Close()
+		client.Kill()
 		return nil, err
 	}
 
@@ -207,88 +200,17 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 
 	// We should have a KV store now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
-	kv := raw.(pythonapi)
+	kv := raw.(keystore.PythonAPI)
 
 	log.Info("client plugin interface taken")
 
 	return &NetAppAPI{
-		pythonapi:  kv,
+		PythonAPI:  kv,
 		client:     client,
+		clientID:   clientID,
 		status:     "RUNNING",
 		statusLock: &sync.Mutex{},
 		apiFiles:   syncResult,
 		root:       folder,
 		Version:    "TBA"}, nil
-}
-
-// GRPCClient is an implementation of KV that talks over RPC.
-type GRPCClient struct{ client keystore.KeyStoreClient }
-
-func (m *GRPCClient) Put(key string, value string) error {
-	_, err := m.client.Put(context.Background(), &keystore.PutRequest{
-		Key:   key,
-		Value: value,
-	})
-	return err
-}
-
-func (m *GRPCClient) Get(key string) (string, error) {
-	resp, err := m.client.Get(context.Background(), &keystore.GetRequest{
-		Key: key,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return resp.Value, nil
-}
-
-// Here is the gRPC server that GRPCClient talks to.
-type GRPCServer struct {
-	// This is the real implementation
-	Impl pythonapi
-}
-
-func (m *GRPCServer) Put(
-	ctx context.Context,
-	req *keystore.PutRequest) (*keystore.Empty, error) {
-	return &keystore.Empty{}, m.Impl.Put(req.Key, req.Value)
-}
-
-func (m *GRPCServer) Get(
-	ctx context.Context,
-	req *keystore.GetRequest) (*keystore.GetResponse, error) {
-	v, err := m.Impl.Get(req.Key)
-	return &keystore.GetResponse{Value: v}, err
-}
-
-// Handshake is a common handshake that is shared by plugin and host.
-var Handshake = plugin.HandshakeConfig{
-	// This isn't required when using VersionedPlugins
-	ProtocolVersion:  1,
-	MagicCookieKey:   "BASIC_PLUGIN",
-	MagicCookieValue: "hello",
-}
-
-// PluginMap is the map of plugins we can dispense.
-var PluginMap = map[string]plugin.Plugin{
-	"kv_grpc": &KVGRPCPlugin{},
-}
-
-// This is the implementation of plugin.GRPCPlugin so we can serve/consume this.
-type KVGRPCPlugin struct {
-	// GRPCPlugin must still implement the Plugin interface
-	plugin.Plugin
-	// Concrete implementation, written in Go. This is only used for plugins
-	// that are written in Go.
-	Impl pythonapi
-}
-
-func (p *KVGRPCPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	keystore.RegisterKeyStoreServer(s, &GRPCServer{Impl: p.Impl})
-	return nil
-}
-
-func (p *KVGRPCPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return &GRPCClient{client: keystore.NewKeyStoreClient(c)}, nil
 }

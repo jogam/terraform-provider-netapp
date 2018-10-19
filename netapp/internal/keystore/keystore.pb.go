@@ -148,6 +148,84 @@ func (m *PutRequest) GetValue() string {
 	return ""
 }
 
+type ShutdownRequest struct {
+	Clientid             string   `protobuf:"bytes,1,opt,name=clientid,proto3" json:"clientid,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ShutdownRequest) Reset()         { *m = ShutdownRequest{} }
+func (m *ShutdownRequest) String() string { return proto.CompactTextString(m) }
+func (*ShutdownRequest) ProtoMessage()    {}
+func (*ShutdownRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_ac3dafe49d0dc795, []int{3}
+}
+
+func (m *ShutdownRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShutdownRequest.Unmarshal(m, b)
+}
+func (m *ShutdownRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShutdownRequest.Marshal(b, m, deterministic)
+}
+func (m *ShutdownRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShutdownRequest.Merge(m, src)
+}
+func (m *ShutdownRequest) XXX_Size() int {
+	return xxx_messageInfo_ShutdownRequest.Size(m)
+}
+func (m *ShutdownRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShutdownRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShutdownRequest proto.InternalMessageInfo
+
+func (m *ShutdownRequest) GetClientid() string {
+	if m != nil {
+		return m.Clientid
+	}
+	return ""
+}
+
+type ShutdownResponse struct {
+	Result               bool     `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ShutdownResponse) Reset()         { *m = ShutdownResponse{} }
+func (m *ShutdownResponse) String() string { return proto.CompactTextString(m) }
+func (*ShutdownResponse) ProtoMessage()    {}
+func (*ShutdownResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_ac3dafe49d0dc795, []int{4}
+}
+
+func (m *ShutdownResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShutdownResponse.Unmarshal(m, b)
+}
+func (m *ShutdownResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShutdownResponse.Marshal(b, m, deterministic)
+}
+func (m *ShutdownResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShutdownResponse.Merge(m, src)
+}
+func (m *ShutdownResponse) XXX_Size() int {
+	return xxx_messageInfo_ShutdownResponse.Size(m)
+}
+func (m *ShutdownResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShutdownResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShutdownResponse proto.InternalMessageInfo
+
+func (m *ShutdownResponse) GetResult() bool {
+	if m != nil {
+		return m.Result
+	}
+	return false
+}
+
 type Empty struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -158,7 +236,7 @@ func (m *Empty) Reset()         { *m = Empty{} }
 func (m *Empty) String() string { return proto.CompactTextString(m) }
 func (*Empty) ProtoMessage()    {}
 func (*Empty) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ac3dafe49d0dc795, []int{3}
+	return fileDescriptor_ac3dafe49d0dc795, []int{5}
 }
 
 func (m *Empty) XXX_Unmarshal(b []byte) error {
@@ -183,24 +261,31 @@ func init() {
 	proto.RegisterType((*GetRequest)(nil), "keystore.GetRequest")
 	proto.RegisterType((*GetResponse)(nil), "keystore.GetResponse")
 	proto.RegisterType((*PutRequest)(nil), "keystore.PutRequest")
+	proto.RegisterType((*ShutdownRequest)(nil), "keystore.ShutdownRequest")
+	proto.RegisterType((*ShutdownResponse)(nil), "keystore.ShutdownResponse")
 	proto.RegisterType((*Empty)(nil), "keystore.Empty")
 }
 
 func init() { proto.RegisterFile("keystore.proto", fileDescriptor_ac3dafe49d0dc795) }
 
 var fileDescriptor_ac3dafe49d0dc795 = []byte{
-	// 171 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcb, 0x4e, 0xad, 0x2c,
-	0x2e, 0xc9, 0x2f, 0x4a, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x80, 0xf1, 0x95, 0xe4,
-	0xb8, 0xb8, 0xdc, 0x53, 0x4b, 0x82, 0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x84, 0x04, 0xb8, 0x98,
-	0xb3, 0x53, 0x2b, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38, 0x83, 0x40, 0x4c, 0x25, 0x65, 0x2e, 0x6e,
-	0xb0, 0x7c, 0x71, 0x41, 0x7e, 0x5e, 0x71, 0xaa, 0x90, 0x08, 0x17, 0x6b, 0x59, 0x62, 0x4e, 0x69,
-	0x2a, 0x54, 0x09, 0x84, 0xa3, 0x64, 0xc2, 0xc5, 0x15, 0x50, 0x8a, 0xdb, 0x10, 0x84, 0x2e, 0x26,
-	0x64, 0x5d, 0xec, 0x5c, 0xac, 0xae, 0xb9, 0x05, 0x25, 0x95, 0x46, 0x39, 0x5c, 0x1c, 0xde, 0xa9,
-	0x95, 0xc1, 0x20, 0xf7, 0x08, 0x19, 0x71, 0x31, 0xbb, 0xa7, 0x96, 0x08, 0x89, 0xe8, 0xc1, 0x5d,
-	0x8c, 0x70, 0x9e, 0x94, 0x28, 0x9a, 0x28, 0xd4, 0x51, 0x3a, 0x5c, 0xcc, 0x01, 0xa5, 0x28, 0x7a,
-	0x10, 0xae, 0x91, 0xe2, 0x47, 0x88, 0x82, 0x6d, 0x4b, 0x62, 0x03, 0x07, 0x81, 0x31, 0x20, 0x00,
-	0x00, 0xff, 0xff, 0x46, 0x7c, 0x7f, 0x5c, 0x14, 0x01, 0x00, 0x00,
+	// 243 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x51, 0xc1, 0x4a, 0x03, 0x31,
+	0x14, 0x64, 0x5d, 0x5a, 0xe3, 0x08, 0xb6, 0x84, 0x2a, 0x9a, 0x83, 0x48, 0xbc, 0x88, 0x68, 0x0f,
+	0xd5, 0x1f, 0xf0, 0x20, 0x3d, 0x78, 0x29, 0xdb, 0x2f, 0x50, 0xfb, 0xc0, 0xd2, 0x75, 0xb3, 0x6e,
+	0x5e, 0x94, 0x7c, 0x95, 0xbf, 0x28, 0x4d, 0xb3, 0x8d, 0x2e, 0xf6, 0x96, 0x79, 0x33, 0x93, 0x79,
+	0x93, 0xe0, 0x68, 0x45, 0xde, 0xb2, 0x69, 0x68, 0x5c, 0x37, 0x86, 0x8d, 0x14, 0x2d, 0xd6, 0xe7,
+	0xc0, 0x94, 0xb8, 0xa0, 0x0f, 0x47, 0x96, 0xe5, 0x10, 0xf9, 0x8a, 0xfc, 0x69, 0x76, 0x91, 0x5d,
+	0x1d, 0x14, 0xeb, 0xa3, 0xbe, 0xc4, 0x61, 0xe0, 0x6d, 0x6d, 0x2a, 0x4b, 0x72, 0x84, 0xde, 0xe7,
+	0x73, 0xe9, 0x28, 0x4a, 0x36, 0x40, 0xdf, 0x03, 0x33, 0xb7, 0xfb, 0x92, 0xe4, 0xda, 0xfb, 0xed,
+	0xba, 0xc5, 0x60, 0xfe, 0xe6, 0x78, 0x61, 0xbe, 0xaa, 0xd6, 0xaa, 0x20, 0x5e, 0xcb, 0x25, 0x55,
+	0xbc, 0x5c, 0x44, 0xff, 0x16, 0xeb, 0x6b, 0x0c, 0x93, 0x3c, 0xae, 0x73, 0x82, 0x7e, 0x43, 0xd6,
+	0x95, 0x1c, 0xd4, 0xa2, 0x88, 0x48, 0xef, 0xa3, 0xf7, 0xf8, 0x5e, 0xb3, 0x9f, 0x7c, 0x67, 0x10,
+	0x4f, 0xe4, 0xe7, 0xeb, 0xae, 0x72, 0x82, 0x7c, 0x4a, 0x2c, 0x47, 0xe3, 0xed, 0x6b, 0xa4, 0xea,
+	0xea, 0xb8, 0x33, 0x8d, 0x09, 0x37, 0xc8, 0x67, 0xee, 0x8f, 0x27, 0x35, 0x55, 0x83, 0x34, 0x0d,
+	0x71, 0xf2, 0x01, 0xa2, 0xdd, 0x51, 0x9e, 0x25, 0xb2, 0x53, 0x53, 0xa9, 0xff, 0xa8, 0x4d, 0xe0,
+	0x4b, 0x3f, 0xfc, 0xd0, 0xdd, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x5b, 0xe9, 0x28, 0x6b, 0xb3,
+	0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -217,6 +302,7 @@ const _ = grpc.SupportPackageIsVersion4
 type KeyStoreClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*Empty, error)
+	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
 }
 
 type keyStoreClient struct {
@@ -245,10 +331,20 @@ func (c *keyStoreClient) Put(ctx context.Context, in *PutRequest, opts ...grpc.C
 	return out, nil
 }
 
+func (c *keyStoreClient) Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error) {
+	out := new(ShutdownResponse)
+	err := c.cc.Invoke(ctx, "/keystore.KeyStore/Shutdown", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KeyStoreServer is the server API for KeyStore service.
 type KeyStoreServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Put(context.Context, *PutRequest) (*Empty, error)
+	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
 }
 
 func RegisterKeyStoreServer(s *grpc.Server, srv KeyStoreServer) {
@@ -291,6 +387,24 @@ func _KeyStore_Put_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KeyStore_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShutdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyStoreServer).Shutdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/keystore.KeyStore/Shutdown",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyStoreServer).Shutdown(ctx, req.(*ShutdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _KeyStore_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "keystore.KeyStore",
 	HandlerType: (*KeyStoreServer)(nil),
@@ -302,6 +416,10 @@ var _KeyStore_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Put",
 			Handler:    _KeyStore_Put_Handler,
+		},
+		{
+			MethodName: "Shutdown",
+			Handler:    _KeyStore_Shutdown_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

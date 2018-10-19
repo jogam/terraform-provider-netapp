@@ -711,6 +711,12 @@
 			"revisionTime": "2018-09-10T08:07:58Z"
 		},
 		{
+			"checksumSHA1": "MBPOff+xb52m4W9r6N00Jy3QGWw=",
+			"path": "github.com/segmentio/ksuid",
+			"revision": "b85603ccf83fccc141ffd36f9290976bf242aa91",
+			"revisionTime": "2018-10-18T14:38:15Z"
+		},
+		{
 			"checksumSHA1": "87vhI0ZIfsC9nDcXVnhUJXaOweQ=",
 			"path": "github.com/sirupsen/logrus",
 			"revision": "458213699411cdceb6fd839a3178be49c01fba54",
