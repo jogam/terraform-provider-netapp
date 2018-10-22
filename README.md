@@ -1,31 +1,27 @@
 Terraform Provider
 ==================
 
-- Website: https://www.terraform.io
-- [![Gitter chat](https://badges.gitter.im/hashicorp-terraform/Lobby.png)](https://gitter.im/hashicorp-terraform/Lobby)
-- Mailing list: [Google Groups](http://groups.google.com/group/terraform-tool)
+- Under Construction
+- Current Status: key/value storage from GO to python with proper start/stop etc
 
 <img src="https://cdn.rawgit.com/hashicorp/terraform-website/master/content/source/assets/images/logo-hashicorp.svg" width="600px">
 
 Maintainers
 -----------
 
-This provider plugin is maintained by the Terraform team at [HashiCorp](https://www.hashicorp.com/).
+This provider plugin is being developped by jogam.
 
 Requirements
 ------------
 
--	[Terraform](https://www.terraform.io/downloads.html) 0.10.x
--	[Go](https://golang.org/doc/install) 1.8 (to build the provider plugin)
+-	[Terraform](https://www.terraform.io/downloads.html) 0.11.9+ (0.11.9 used for dev/testing)
+-	[Go](https://golang.org/doc/install) 1.10.? (1.8 to build the provider plugin, 1.10.1 used for dev/testing)
 
 Usage
 ---------------------
 
 ```
-# For example, restrict template version in 0.1.x
-provider "template" {
-  version = "~> 0.1"
-}
+TBA
 ```
 
 Building The Provider
@@ -48,6 +44,9 @@ $ make build
 Using the provider
 ----------------------
 ## Fill in for each provider
+TBA, 
+- need python/virtualenv
+- supported NetApp device for access to NetApp Manageability SDK download
 
 Developing the Provider
 ---------------------------
