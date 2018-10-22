@@ -51,13 +51,12 @@ func Provider() terraform.ResourceProvider {
 				Description: "Port on which the NetApp api should be started (Default: 12343).",
 			},
 
-			// TODO: allow set API client registry port via python call env variable
-			// "api_client_registry_port": &schema.Schema{
-			// 	Type:        schema.TypeString,
-			// 	Optional:	 true,
-			// 	DefaultFunc: schema.EnvDefaultFunc("NETAPP_API_CR_PORT", "12342"),
-			// 	Description: "Port on which the NetApp api client registry should be started (Default: 12342).",
-			// },
+			"api_client_registry_port": &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("NETAPP_API_CR_PORT", "12342"),
+				Description: "Port on which the NetApp api client registry should be started (Default: 12342).",
+			},
 
 			// "allow_unverified_ssl": &schema.Schema {
 			// 	Type:        schema.TypeBool,

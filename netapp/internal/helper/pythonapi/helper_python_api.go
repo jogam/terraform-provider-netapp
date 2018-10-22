@@ -12,13 +12,13 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/jogam/terraform-provider-netapp/netapp/internal/keystore"
+	pyapi "github.com/jogam/terraform-provider-netapp/netapp/internal/keystore"
 )
 
 // NetAppAPI the structure for the Python API interaction
 // to be refined access to Python API
 type NetAppAPI struct {
-	keystore.PythonAPI
+	pyapi.PythonAPI
 	client     *plugin.Client
 	clientID   string
 	apiFiles   *SyncResult
@@ -76,17 +76,11 @@ func (api NetAppAPI) Stop() error {
 // 	return nil
 // }
 
-var requiredAPIScripts = []string{
+var requiredAPIScripts = append([]string{
 	"scripts/setup_virtualenv.sh",
 	"scripts/start_api.sh",
-	"scripts/stop_api.sh",
 	"requirements.txt",
-	"__init__.py",
-	"keystore_pb2_grpc.py",
-	"keystore_pb2.py",
-	"keystore.py",
-	"if_vlan_get.py",
-}
+}, pyapi.APIScripts...)
 
 func apiUp(apiFolder string) bool {
 	if _, err := os.Stat(filepath.Join(
@@ -134,7 +128,9 @@ func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error
 }
 
 // CreateAPI TODO: doc for create API call
-func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error) {
+func CreateAPI(
+	folder string, sdkroot string, regport string,
+	apiport string) (*NetAppAPI, error) {
 
 	// check if API is already running via running file
 	apiRunning := apiUp(folder)
@@ -151,6 +147,7 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 		}
 	}
 
+	// if we'd like to not see logging output...
 	//log.SetOutput(ioutil.Discard)
 
 	// get the api startup script
@@ -165,11 +162,13 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 
 	// start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: keystore.Handshake,
-		Plugins:         keystore.PluginMap,
+		HandshakeConfig: pyapi.Handshake,
+		Plugins:         pyapi.PluginMap,
 		Cmd: exec.Command("sh", "-c",
-			fmt.Sprintf("%v %v %v %v %v",
-				startupFilePath, folder, "keystore.py", apiport, clientID)),
+			fmt.Sprintf("%v %v %v %v %v %v %v",
+				startupFilePath,
+				folder, sdkroot, regport, // shift arguments
+				pyapi.APIMain, apiport, clientID)),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
@@ -200,7 +199,7 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 
 	// We should have a KV store now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
-	kv := raw.(keystore.PythonAPI)
+	kv := raw.(pyapi.PythonAPI)
 
 	log.Info("client plugin interface taken")
 

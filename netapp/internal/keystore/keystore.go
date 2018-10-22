@@ -7,8 +7,24 @@ import (
 	"google.golang.org/grpc"
 )
 
-// KV is the interface that we're exposing as a plugin.
+// APIScripts the scripts required for this API
+var APIScripts = []string{
+	"__init__.py",
+	"keystore_pb2_grpc.py",
+	"keystore_pb2.py",
+	"keystore.py",
+}
+
+// APIMain is the script to be called from python
+var APIMain = "keystore.py"
+
+// PythonAPI is the interface exposed
 type PythonAPI interface {
+	Keystore
+}
+
+// Keystore is the interface that is implemented by GRPC/Python
+type Keystore interface {
 	Put(key string, value string) error
 	Get(key string) (string, error)
 	Shutdown(clientID string) (bool, error)
@@ -50,7 +66,7 @@ func (m *gRPCClient) Shutdown(clientID string) (bool, error) {
 // Here is the gRPC server that GRPCClient talks to.
 type gRPCServer struct {
 	// This is the real implementation
-	Impl PythonAPI
+	Impl Keystore
 }
 
 func (m *gRPCServer) Put(
@@ -92,7 +108,7 @@ type KVGRPCPlugin struct {
 	plugin.Plugin
 	// Concrete implementation, written in Go. This is only used for plugins
 	// that are written in Go.
-	Impl PythonAPI
+	Impl Keystore
 }
 
 func (p *KVGRPCPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {

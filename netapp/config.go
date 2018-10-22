@@ -18,6 +18,7 @@ type Config struct {
 	SdkRoot  string
 	ApiPath  string
 	ApiPort  string
+	RegPort  string
 }
 
 // NewConfig returns a new Config from the supplied ResourceData
@@ -29,13 +30,16 @@ func NewConfig(d *schema.ResourceData) (*Config, error) {
 		SdkRoot:  d.Get("nmsdk_root_path").(string),
 		ApiPath:  d.Get("api_folder").(string),
 		ApiPort:  d.Get("api_port").(string),
+		RegPort:  d.Get("api_client_registry_port").(string),
 	}
 
 	return c, nil
 }
 
 func (c *Config) Client() (*NetAppClient, error) {
-	api, err := pythonapi.CreateAPI(c.ApiPath, c.SdkRoot, c.ApiPort)
+	api, err := pythonapi.CreateAPI(
+		c.ApiPath, c.SdkRoot,
+		c.RegPort, c.ApiPort)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating python NetApp API: %s", err)
 	}

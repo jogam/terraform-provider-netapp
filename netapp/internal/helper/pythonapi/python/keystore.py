@@ -4,6 +4,14 @@ import logging
 import os
 import sys
 
+import sys
+
+# append the NetApp SDK python library to path
+sys.path.append(
+    os.path.join(
+        os.environ.get('NETAPP_MSDK_ROOT_PATH', 'FAULT'),
+        'lib', 'python', 'NetApp'))
+
 from multiprocessing import Event
 import socket
 from contextlib import closing
@@ -160,6 +168,8 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     health_pb2_grpc.add_HealthServicer_to_server(health, server)
     server.add_insecure_port(host + ':' + port)
     server.start()
+
+    logging.debug('started GRPC server @ %s:%s', host, port)
 
     # let GRPC know we are here and good...
     notify_grpc(client_id, registry)

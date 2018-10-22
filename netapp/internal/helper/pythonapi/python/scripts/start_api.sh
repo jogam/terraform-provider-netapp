@@ -9,11 +9,22 @@
 
 APIROOT="$1"
 shift
+SDKROOT="$1"
+shift
+REGPORT="$1"
+shift
 
 # navigate to Python API root directory
 cd $APIROOT
 
 echo "Starting NetApp Python API in: ${APIROOT}" >> python_api.log
+
+# define environment variables
+export NETAPP_API_CR_PORT="${REGPORT}"
+echo "NetApp Python API client registry on: $NETAPP_API_CR_PORT" >> python_api.log
+
+export NETAPP_MSDK_ROOT_PATH="${SDKROOT}"
+echo "NetApp SDK root at: $NETAPP_MSDK_ROOT_PATH" >> python_api.log
 
 # check if virtualenv is already present, create if not
 if [ ! -d "./venv" ]

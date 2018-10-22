@@ -1,4 +1,5 @@
 # test implementation of key store
+import os
 import time
 import logging
 from enum import Enum
@@ -13,7 +14,7 @@ class RegistryManager(mp_Managers.BaseManager):
 
 class RegistryServer(Process):
     __KEY = b'NETAPPapiS3CR3Tk8'
-    __PORT = 12342
+    __PORT = int(os.environ.get('NETAPP_API_CR_PORT', '12342'))
     __HOST = 'localhost'
 
     def __init__(self, notify):
@@ -73,7 +74,10 @@ class RegistryServer(Process):
 
         manager.start()
 
-        logging.debug('registry server started')
+        logging.debug(
+            'registry server started @ %s:%s',
+            RegistryServer.__HOST,
+            RegistryServer.__PORT)
 
         self.notify.set()
 
