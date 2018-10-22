@@ -204,6 +204,16 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 
 	log.Info("client plugin interface taken")
 
+	err = kv.Put("version", "shouldbegetonly")
+	if err != nil {
+		log.Errorf("version set Error: %v", err.Error())
+	}
+
+	version, err := kv.Get("version")
+	if err != nil {
+		log.Errorf("version get Error: %v", err.Error())
+	}
+
 	return &NetAppAPI{
 		PythonAPI:  kv,
 		client:     client,
@@ -212,5 +222,5 @@ func CreateAPI(folder string, sdkroot string, apiport string) (*NetAppAPI, error
 		statusLock: &sync.Mutex{},
 		apiFiles:   syncResult,
 		root:       folder,
-		Version:    "TBA"}, nil
+		Version:    version}, nil
 }
