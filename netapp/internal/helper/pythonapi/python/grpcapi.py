@@ -103,13 +103,10 @@ def unregister_client(registry, client_id):
 def serve(client_id, host='127.0.0.1', port='1234'):
 
     # create client registry server
-    serv_event = Event()
-    reg_server = RegistryServer(serv_event)
+    reg_server = RegistryServer()
     reg_server.start()
 
-    while not serv_event.is_set():
-        serv_event.wait(1)
-    serv_event.clear()
+    reg_server.wait_complete()
 
     # create client registry
     registry = RegistryServer.GET_CLIENT_REGISTRY()
@@ -127,8 +124,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
         registry.shutdown()
 
-        while not serv_event.is_set():
-            serv_event.wait(1)
+        reg_server.wait_complete()
 
         reg_server.terminate()
         reg_server.join()
@@ -140,8 +136,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
         registry.shutdown()
 
-        while not serv_event.is_set():
-            serv_event.wait(1)
+        reg_server.wait_complete()
 
         reg_server.terminate()
         reg_server.join()
@@ -172,8 +167,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
         server.stop(0)
         registry.shutdown()
 
-        while not serv_event.is_set():
-            serv_event.wait(1)
+        reg_server.wait_complete()
 
         reg_server.terminate()
         reg_server.join()
@@ -208,9 +202,8 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     os.remove(RUNNING_FILE)     # making sure we are not running
     registry.shutdown()
 
-    # sleep until server indicates shutdown
-    while not serv_event.is_set():
-        serv_event.wait(1)
+    # sleep until server indicates shutdown complete
+    reg_server.wait_complete()
 
     reg_server.terminate()
     reg_server.join()

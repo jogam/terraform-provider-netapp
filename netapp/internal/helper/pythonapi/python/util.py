@@ -17,10 +17,15 @@ class RegistryServer(Process):
     __PORT = int(os.environ.get('NETAPP_API_CR_PORT', '12342'))
     __HOST = 'localhost'
 
-    def __init__(self, notify):
+    def __init__(self):
         super(RegistryServer, self).__init__()
-        self.notify = notify
+        self.notify = Event()
 
+    def wait_complete(self):
+        while not self.notify.is_set():
+            self.notify.wait(1)
+            
+        self.notify.clear()
 
     @staticmethod
     def GET_CLIENT_REGISTRY():
@@ -79,6 +84,7 @@ class RegistryServer(Process):
             RegistryServer.__HOST,
             RegistryServer.__PORT)
 
+        # indicate to outside world that start is complete
         self.notify.set()
 
         # sleep until shutdown is issued
@@ -93,6 +99,7 @@ class RegistryServer(Process):
 
         logging.debug('registry server exiting')
 
+        # indicate to outside world that stop is complete
         self.notify.set()
 
 
