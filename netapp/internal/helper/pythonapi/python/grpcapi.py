@@ -30,8 +30,8 @@ from util import (
 
 import grpc
 
-import keystore_pb2
-import keystore_pb2_grpc
+import grpcapi_pb2
+import grpcapi_pb2_grpc
 
 from grpc_health.v1.health import HealthServicer
 from grpc_health.v1 import health_pb2, health_pb2_grpc
@@ -49,39 +49,30 @@ LOCALHOST = "172.0.0.1"
 CHECK_TIMEOUT = 0.8             # check if api is being used every 800ms
 RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc server is up
 
-class KeyStoreServicer(keystore_pb2_grpc.KeyStoreServicer):
-    """Implementation of KV service."""
+class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
+    """Implementation of NetAppApiServicer."""
 
     def __init__(self, registry, counter, *args, **kwargs):
-        super(KeyStoreServicer, self).__init__(*args, **kwargs)
+        super(NetAppApiServicer, self).__init__(*args, **kwargs)
         self.registry = registry
         self.counter = counter
         logging.debug("servicer initialized with call counter")
 
-    def Get(self, request, context):
-        filename = "kv_"+request.key
-        logging.debug("GET request: %s", request.key)
+    def Call(self, request, context):
+        logging.debug("Call request: %s", request.cmd)
         self.counter.increment()
-        with open(filename, 'r') as f:
-            result = keystore_pb2.GetResponse()
-            result.value = f.read()
-            return result
-
-    def Put(self, request, context):
-        logging.debug("PUT request: %s = %s", request.key, request.value)
-        filename = "kv_"+request.key
-        self.counter.increment()
-        with open(filename, 'w') as f:
-            f.write(request.value)
-
-        return keystore_pb2.Empty()
+        resp = grpcapi_pb2.CallResponse()
+        resp.success = True
+        resp.errmsg = ''
+        resp.data = b'something'
+        return resp
 
     def Shutdown(self, request, context):
         logging.debug("SD request for client: %s", request.clientid)
         success = self.registry.set_client_status(
             request.clientid,
             ClientStatus.shutdown)
-        resp = keystore_pb2.ShutdownResponse()
+        resp = grpcapi_pb2.ShutdownResponse()
         resp.result = success
         return resp
 
@@ -127,7 +118,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     call_counter = CallCounter(initval=1)
 
     # create the servicer with this semaphore
-    servicer = KeyStoreServicer(registry, call_counter)
+    servicer = NetAppApiServicer(registry, call_counter)
 
     # generate gRPC connection message and store in registry
     grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
@@ -164,7 +155,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
     # Start the server.
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    keystore_pb2_grpc.add_KeyStoreServicer_to_server(servicer, server)
+    grpcapi_pb2_grpc.add_GRPCNetAppApiServicer_to_server(servicer, server)
     health_pb2_grpc.add_HealthServicer_to_server(health, server)
     server.add_insecure_port(host + ':' + port)
     server.start()

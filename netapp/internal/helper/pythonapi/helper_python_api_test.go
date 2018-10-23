@@ -11,13 +11,11 @@ func rwTest(
 	api *NetAppAPI, r *require.Assertions,
 	key string, value string) {
 
-	err := api.Put(key, value)
+	succ, errmsg, data, err := api.Call(key+":"+value, nil)
 	r.NoError(err)
-
-	val, err := api.Get(key)
-	r.NoError(err)
-
-	r.Equalf(value, val, "read value should match")
+	r.True(succ)
+	r.Zero(errmsg)
+	r.NotZero(data)
 }
 
 func Test_Python_Api_Create(t *testing.T) {

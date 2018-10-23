@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package grpcapi;
+
+message CallRequest {
+	string cmd = 1;
+	bytes data = 2;
+}
+
+message CallResponse {
+	bool success = 1;
+	string errmsg = 2;
+	bytes data = 3;
+}
+
+message ShutdownRequest {
+	string clientid = 1;
+}
+
+message ShutdownResponse {
+	bool result = 1;
+}
+
+// the simple API definition
+service GRPCNetAppApi {
+	rpc Call (CallRequest) returns (CallResponse);
+	rpc Shutdown (ShutdownRequest) returns (ShutdownResponse);
+}

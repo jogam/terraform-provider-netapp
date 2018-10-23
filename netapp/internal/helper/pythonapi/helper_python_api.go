@@ -5,76 +5,22 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 
 	"github.com/segmentio/ksuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/hashicorp/go-plugin"
 
-	pyapi "github.com/jogam/terraform-provider-netapp/netapp/internal/keystore"
+	pyapi "github.com/jogam/terraform-provider-netapp/netapp/internal/grpcapi"
 )
 
 // NetAppAPI the structure for the Python API interaction
 // to be refined access to Python API
 type NetAppAPI struct {
 	pyapi.PythonAPI
-	client     *plugin.Client
-	clientID   string
-	apiFiles   *SyncResult
-	status     string
-	statusLock *sync.Mutex
-	root       string
-	Version    string
+	client   *plugin.Client
+	clientID string
 }
-
-// Stop must be called before API is stopped being used, e.g. plugin shutdown
-func (api NetAppAPI) Stop() error {
-
-	api.statusLock.Lock()
-
-	if api.status == "STOPPED" {
-		return nil
-	}
-
-	succ, err := api.Shutdown(api.clientID)
-	if err == nil && succ {
-		api.status = "STOPPED"
-	} else {
-		log.Errorf("API shutdown returned [%v] with error: %v", succ, err.Error)
-		if !succ {
-			err = fmt.Errorf("API shutdown returned: %v", succ)
-		}
-	}
-
-	api.statusLock.Unlock()
-
-	// kill the underlying client
-	api.client.Kill()
-
-	return err
-}
-
-// func stopAPI(apiFiles *SyncResult, folder string, client *plugin.Client) error {
-// 	// get the setup script path
-// 	shutdownFilePath, err := apiFiles.GetFilePath("scripts/stop_api.sh")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	// execute API virtualenv setup and requirements install
-// 	out, err := exec.Command("sh", "-c",
-// 		fmt.Sprintf("%v %v", shutdownFilePath, folder)).Output()
-// 	if err != nil {
-// 		log.Errorf("could not stop API, got: %v", err)
-// 		return err
-// 	}
-// 	log.Infof("stop API returned:\n%v", string(out))
-
-// 	// killing the client
-// 	client.Kill()
-
-// 	return nil
-// }
 
 var requiredAPIScripts = append([]string{
 	"scripts/setup_virtualenv.sh",
@@ -89,6 +35,19 @@ func apiUp(apiFolder string) bool {
 	}
 
 	return false
+}
+
+// Stop must be called before API is stopped being used, e.g. plugin shutdown
+func (api NetAppAPI) Stop() error {
+	succ, err := api.Shutdown(api.clientID)
+	if err != nil {
+		log.Errorf("API shutdown returned [%v] with error: %v", succ, err.Error)
+		if !succ {
+			err = fmt.Errorf("API shutdown returned: %v", succ)
+		}
+	}
+
+	return err
 }
 
 func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error {
@@ -186,7 +145,7 @@ func CreateAPI(
 	log.Info("client protocol created")
 
 	// Request the plugin
-	raw, err := rpcClient.Dispense("kv_grpc")
+	raw, err := rpcClient.Dispense("grpcapi")
 	if err != nil {
 		log.Errorf("Plugin dispense Error: %v", err.Error())
 		//stopAPI(syncResult, folder, client)
@@ -197,29 +156,15 @@ func CreateAPI(
 
 	log.Info("client plugin dispensed")
 
-	// We should have a KV store now! This feels like a normal interface
+	// We should have an API now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
-	kv := raw.(pyapi.PythonAPI)
+	apiplug := raw.(pyapi.PythonAPI)
 
 	log.Info("client plugin interface taken")
 
-	err = kv.Put("version", "shouldbegetonly")
-	if err != nil {
-		log.Errorf("version set Error: %v", err.Error())
-	}
-
-	version, err := kv.Get("version")
-	if err != nil {
-		log.Errorf("version get Error: %v", err.Error())
-	}
-
 	return &NetAppAPI{
-		PythonAPI:  kv,
-		client:     client,
-		clientID:   clientID,
-		status:     "RUNNING",
-		statusLock: &sync.Mutex{},
-		apiFiles:   syncResult,
-		root:       folder,
-		Version:    version}, nil
+		PythonAPI: apiplug,
+		client:    client,
+		clientID:  clientID,
+	}, nil
 }
