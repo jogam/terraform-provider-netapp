@@ -7,6 +7,7 @@ from enum import Enum
 from multiprocessing import Process, Lock, Event, Value
 import multiprocessing.managers as mp_Managers
 
+LOGGER = logging.getLogger(__name__)
 
 class RegistryManager(mp_Managers.BaseManager):
    pass
@@ -24,7 +25,7 @@ class RegistryServer(Process):
     def wait_complete(self):
         while not self.notify.is_set():
             self.notify.wait(1)
-            
+
         self.notify.clear()
 
     @staticmethod
@@ -47,7 +48,7 @@ class RegistryServer(Process):
 
     def run(self):
 
-        logging.debug('starting up registry server')
+        LOGGER.debug('starting up registry server')
 
         data_dict = {
             'apistatus': 'TBD',     # the status of the NetApp api
@@ -75,11 +76,11 @@ class RegistryServer(Process):
                     RegistryServer.__PORT),
                 authkey=RegistryServer.__KEY)
 
-        logging.debug('registry server created')
+        LOGGER.debug('registry server created')
 
         manager.start()
 
-        logging.debug(
+        LOGGER.debug(
             'registry server started @ %s:%s',
             RegistryServer.__HOST,
             RegistryServer.__PORT)
@@ -91,13 +92,13 @@ class RegistryServer(Process):
         while not sd_event.is_set():
             sd_event.wait(1)
 
-        logging.debug('registry server shutting down')
+        LOGGER.debug('registry server shutting down')
 
         # shutdown the manager
         manager.shutdown()
         manager.join()
 
-        logging.debug('registry server exiting')
+        LOGGER.debug('registry server exiting')
 
         # indicate to outside world that stop is complete
         self.notify.set()
@@ -161,7 +162,7 @@ class ClientRegistry(object):
         # shutdown all clients
         succ, cdict = self.__get_client_dict()
         if not succ:
-            logging.error('cannot trigger client shutdown')
+            LOGGER.error('cannot trigger client shutdown')
         else:
             for cid in cdict.keys():
                 self.set_client_status(
@@ -177,7 +178,7 @@ class ClientRegistry(object):
     def get_grpc_msg(self):
         grpc_dict = self.__get_value('grpc')
         if type(grpc_dict) is not dict:
-            logging.error('expected dict for key[grpc], got: %s', grpc_dict)
+            LOGGER.error('expected dict for key[grpc], got: %s', grpc_dict)
             return 'no message for you bud...'
 
         return grpc_dict.get('accessmsg', 'no msg in grpc')
@@ -185,7 +186,7 @@ class ClientRegistry(object):
     def set_grpc_msg(self, msg):
         grpc_dict = self.__get_value('grpc')
         if type(grpc_dict) is not dict:
-            logging.error('expected dict for key[grpc], got: %s', grpc_dict)
+            LOGGER.error('expected dict for key[grpc], got: %s', grpc_dict)
             return False
 
         grpc_dict['accessmsg'] = msg
@@ -194,7 +195,7 @@ class ClientRegistry(object):
     def __get_client_dict(self):
         cdict = self.__get_value('clientsessionstatus')
         if type(cdict) is not dict:
-            logging.error('expected dict for key[css], got: %s', cdict)
+            LOGGER.error('expected dict for key[css], got: %s', cdict)
             return False, {}
 
         return True, cdict
@@ -202,7 +203,7 @@ class ClientRegistry(object):
     def __get_client_count(self):
         cdict = self.__get_value('clientsessionstatus')
         if type(cdict) is not dict:
-            logging.error('expected dict for key[css], got: %s', cdict)
+            LOGGER.error('expected dict for key[css], got: %s', cdict)
             return 0
 
         return len(cdict)
@@ -210,27 +211,27 @@ class ClientRegistry(object):
     def register_client(self, id, status):
         succ, cdict = self.__get_client_dict()
         if not succ:
-            logging.error('could not register client ID [%s]', id)
+            LOGGER.error('could not register client ID [%s]', id)
             return succ
 
         if id in cdict:
-            logging.warn('client [%s] already registered...', id)
+            LOGGER.warn('client [%s] already registered...', id)
             
         return self.set_client_status(id, status, cdict)
 
     def unregister_client(self, id):
         succ, cdict = self.__get_client_dict()
         if not succ:
-            logging.error('could not unregister client ID [%s]', id)
+            LOGGER.error('could not unregister client ID [%s]', id)
             return ClientStatus.err_unreg_nodict
 
         if id not in cdict:
-            logging.warn('trying to unregister unknown client ID [%s]', id)
+            LOGGER.warn('trying to unregister unknown client ID [%s]', id)
             return ClientStatus.err_unreg_unkown
 
         status = cdict.pop(id)
         if not self.__set_value('clientsessionstatus', cdict):
-            logging.error(
+            LOGGER.error(
                 'could not write back client dict during unregister of client [%s]', id)
             status = ClientStatus.err_unreg_wrdict
 
@@ -243,7 +244,7 @@ class ClientRegistry(object):
         if not cdict:
             succ, cdict = self.__get_client_dict()
             if not succ:
-                logging.error('could not update status for client ID [%s]', id)
+                LOGGER.error('could not update status for client ID [%s]', id)
                 return succ
 
         cdict[id] = status
@@ -252,11 +253,11 @@ class ClientRegistry(object):
     def get_client_status(self, id):
         succ, cdict = self.__get_client_dict()
         if not succ:
-            logging.error('could not get status for client ID [%s]', id)
+            LOGGER.error('could not get status for client ID [%s]', id)
             return ClientStatus.err_gstat_nodict
 
         if id not in cdict:
-            logging.warn('trying to get status for unknown client ID [%s]', id)
+            LOGGER.warn('trying to get status for unknown client ID [%s]', id)
             return ClientStatus.err_gstat_unkown
 
         return cdict.get(id)
@@ -281,27 +282,3 @@ class CallCounter(object):
     def reset(self, initval=0):
         with self.lock:
             self.val.value = initval
-
-if __name__ == '__main__':
-    import os
-    logging.basicConfig(
-        filename='python_api.log',
-        level=logging.DEBUG,
-        format=(
-                '[%(asctime)s %(levelname)s][' + str(os.getpid()) 
-                + '] @{%(lineno)d} - %(message)s')
-    )
-
-    evt = Event()
-    server = RegistryServer(evt)
-    server.start()
-
-    while not evt.is_set():
-        evt.wait(1)
-    evt.clear()
-
-    registry = RegistryServer.GET_CLIENT_REGISTRY()
-    registry.shutdown()
-
-    while not evt.is_set():
-        evt.wait(1)

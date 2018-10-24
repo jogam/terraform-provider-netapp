@@ -5,10 +5,12 @@ import (
 
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
+
+	netappsys "github.com/jogam/terraform-provider-netapp/netapp/internal/helper/system"
 )
 
 type NetAppClient struct {
-	Api *pythonapi.NetAppAPI
+	api *pythonapi.NetAppAPI
 }
 
 type Config struct {
@@ -36,16 +38,51 @@ func NewConfig(d *schema.ResourceData) (*Config, error) {
 	return c, nil
 }
 
-func (c *Config) Client() (*NetAppClient, error) {
+func (c *Config) savedOrNewApiSession() (*pythonapi.NetAppAPI, bool, error) {
+	// TODO: look into saving conn info via ReattachConfig from go-plugin client
 	api, err := pythonapi.CreateAPI(
 		c.ApiPath, c.SdkRoot,
 		c.RegPort, c.ApiPort)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating python NetApp API: %s", err)
+		return nil, false, fmt.Errorf("Error creating python NetApp API: %s", err)
 	}
 
-	client := &NetAppClient{
-		Api: api,
+	return api, false, nil
+}
+
+func (c *Config) connectToAPI(client *NetAppClient, d *schema.ResourceData) error {
+	// connect and get the ONTAP/OS version
+	resp, err := netappsys.Connect(
+		client.api, &netappsys.ConnectRequest{
+			Host: c.Host, User: c.User, Password: c.Password,
+		})
+
+	if err != nil {
+		return err
+	}
+
+	d.Set("ontap_version", resp.OntapVersion)
+	d.Set("os_version", resp.OsVersion)
+
+	return nil
+}
+
+func (c *Config) Client(d *schema.ResourceData) (*NetAppClient, error) {
+	client := new(NetAppClient)
+
+	var saved bool
+	var err error
+
+	client.api, saved, err = c.savedOrNewApiSession()
+	if err != nil {
+		return nil, err
+	}
+
+	if !saved {
+		err := c.connectToAPI(client, d)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return client, nil

@@ -33,6 +33,7 @@ type GRPCNetAppAPI interface {
 type gRPCClient struct{ client GRPCNetAppApiClient }
 
 func (m *gRPCClient) Call(cmd string, data []byte) (bool, string, []byte, error) {
+	// TODO: expose context created here to upstream for timeout config
 	resp, err := m.client.Call(context.Background(), &CallRequest{
 		Cmd:  cmd,
 		Data: data,
@@ -45,6 +46,7 @@ func (m *gRPCClient) Call(cmd string, data []byte) (bool, string, []byte, error)
 }
 
 func (m *gRPCClient) Shutdown(clientID string) (bool, error) {
+	// TODO: expose context created here to upstream for timeout config
 	resp, err := m.client.Shutdown(context.Background(), &ShutdownRequest{
 		Clientid: clientID,
 	})
@@ -80,8 +82,8 @@ func (m *gRPCServer) Shutdown(
 var Handshake = plugin.HandshakeConfig{
 	// This isn't required when using VersionedPlugins
 	ProtocolVersion:  1,
-	MagicCookieKey:   "BASIC_PLUGIN",
-	MagicCookieValue: "hello",
+	MagicCookieKey:   "NETAPP_API_PLUGIN",
+	MagicCookieValue: "N3tA99c00k13s3CReTk8",
 }
 
 // PluginMap is the map of plugins we can dispense.

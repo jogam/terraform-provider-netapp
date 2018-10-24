@@ -2,12 +2,12 @@ package pythonapi
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/segmentio/ksuid"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/hashicorp/go-plugin"
 
@@ -41,7 +41,7 @@ func apiUp(apiFolder string) bool {
 func (api NetAppAPI) Stop() error {
 	succ, err := api.Shutdown(api.clientID)
 	if err != nil {
-		log.Errorf("API shutdown returned [%v] with error: %v", succ, err.Error)
+		log.Printf("[ERROR] API shutdown returned [%v] with error: %s", succ, err)
 		if !succ {
 			err = fmt.Errorf("API shutdown returned: %v", succ)
 		}
@@ -56,18 +56,18 @@ func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error
 	out, err := exec.Command("sh", "-c",
 		"python -c 'import sys; print(sys.version_info[:])'").Output()
 	if err != nil {
-		log.Errorf("failed to execute python version command, Python installed?")
+		log.Printf("[ERROR] failed to execute python version command, Python installed?")
 		return err
 	}
-	log.Infof("python version: %v", string(out))
+	log.Printf("[INFO] python version: %v", string(out))
 
 	// check virtualenv installed + version?
 	out, err = exec.Command("sh", "-c", "virtualenv --version").Output()
 	if err != nil {
-		log.Errorf("failed to execute virtualenv version command, virtualenv installed?")
+		log.Printf("[ERROR] failed to execute virtualenv version command, virtualenv installed?")
 		return err
 	}
-	log.Infof("virtualenv version: %v", string(out))
+	log.Printf("[INFO] virtualenv version: %v", string(out))
 
 	// get the setup script path
 	setupFilePath, err := syncResult.GetFilePath("scripts/setup_virtualenv.sh")
@@ -78,10 +78,10 @@ func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error
 	out, err = exec.Command("sh", "-c",
 		fmt.Sprintf("%v %v", setupFilePath, folder)).Output()
 	if err != nil {
-		log.Errorf("could not setup virtualenv, got: %v", err)
+		log.Printf("[ERROR] could not setup virtualenv, got: %v", err)
 		return err
 	}
-	log.Infof("virtualenv setup returned: %v", string(out))
+	log.Printf("[INFO] virtualenv setup returned: %v", string(out))
 
 	return nil
 }
@@ -131,36 +131,36 @@ func CreateAPI(
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
-	log.Infof("client [%v] created", clientID)
+	log.Printf("[INFO] client [%v] created", clientID)
 
 	// Connect via RPC
 	rpcClient, err := client.Client()
 	if err != nil {
-		log.Errorf("Plugin start Error: %v", err.Error())
+		log.Printf("[ERROR] Plugin start Error: %s", err)
 		//stopAPI(syncResult, folder, client)
 		client.Kill()
 		return nil, err
 	}
 
-	log.Info("client protocol created")
+	log.Printf("[INFO] client protocol created")
 
 	// Request the plugin
 	raw, err := rpcClient.Dispense("grpcapi")
 	if err != nil {
-		log.Errorf("Plugin dispense Error: %v", err.Error())
+		log.Printf("[ERROR] Plugin dispense Error: %s", err)
 		//stopAPI(syncResult, folder, client)
 		rpcClient.Close()
 		client.Kill()
 		return nil, err
 	}
 
-	log.Info("client plugin dispensed")
+	log.Printf("[INFO] client plugin dispensed")
 
 	// We should have an API now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
 	apiplug := raw.(pyapi.PythonAPI)
 
-	log.Info("client plugin interface taken")
+	log.Printf("[INFO] client plugin interface taken")
 
 	return &NetAppAPI{
 		PythonAPI: apiplug,

@@ -58,6 +58,18 @@ func Provider() terraform.ResourceProvider {
 				Description: "Port on which the NetApp api client registry should be started (Default: 12342).",
 			},
 
+			"ontap_version": &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The ONTAP version installed on the NetApp host",
+			},
+
+			"os_version": &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The system OS version installed on the NetApp host",
+			},
+
 			// "allow_unverified_ssl": &schema.Schema {
 			// 	Type:        schema.TypeBool,
 			// 	Optional:    true,
@@ -80,5 +92,6 @@ func configureProvider(d *schema.ResourceData) (interface{}, error) {
 		return nil, err
 	}
 
-	return c.Client()
+	// need to pass resource data to client for computed ONTAP/OS
+	return c.Client(d)
 }

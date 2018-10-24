@@ -32,7 +32,7 @@ snippets/
 
 website/vendor
 netapp/external/netapp_sdk
-
+.vscode/
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate

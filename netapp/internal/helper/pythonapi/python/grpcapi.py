@@ -6,12 +6,6 @@ import sys
 
 import sys
 
-# append the NetApp SDK python library to path
-sys.path.append(
-    os.path.join(
-        os.environ.get('NETAPP_MSDK_ROOT_PATH', 'FAULT'),
-        'lib', 'python', 'NetApp'))
-
 from multiprocessing import Event
 import socket
 from contextlib import closing
@@ -36,14 +30,17 @@ import grpcapi_pb2_grpc
 from grpc_health.v1.health import HealthServicer
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
-
+# configure logging before command modules import, otherwise logging fails
 logging.basicConfig(
     filename='python_api.log',
     level=logging.DEBUG,
     format=(
         '[%(asctime)s %(levelname)s][' + str(os.getpid()) 
-        + '] @{%(lineno)d} - %(message)s')
+        + '] @{%(name)s:%(lineno)d} - %(message)s')
 )
+LOGGER = logging.getLogger('grpcapi')
+
+from apicmd import NetAppCommandExecutor
 
 LOCALHOST = "172.0.0.1"
 CHECK_TIMEOUT = 0.8             # check if api is being used every 800ms
@@ -56,19 +53,37 @@ class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
         super(NetAppApiServicer, self).__init__(*args, **kwargs)
         self.registry = registry
         self.counter = counter
-        logging.debug("servicer initialized with call counter")
+
+        # create new NetApp Command Executor
+        self.executor = NetAppCommandExecutor() 
+        LOGGER.debug("servicer initialized with call counter")
 
     def Call(self, request, context):
-        logging.debug("Call request: %s", request.cmd)
-        self.counter.increment()
+        LOGGER.debug("Call request: %s", request.cmd)
+
+        # increase the call counter to keep service alive
+        # NOTE: not sure if before or after..
+        self.counter.increment()    
+
+        # get the executor to execute the command
+        succ, errmsg, resp_data = self.executor.execute(
+                                        request.cmd, request.data)
+
+        # do some internal logging
+        if not succ:
+            LOGGER.error(
+                'cmd [%s] failed with: %s',
+                request.cmd, errmsg)
+
+        # create the call response and ship it
         resp = grpcapi_pb2.CallResponse()
-        resp.success = True
-        resp.errmsg = ''
-        resp.data = b'something'
+        resp.success = succ
+        resp.errmsg = errmsg
+        resp.data = resp_data
         return resp
 
     def Shutdown(self, request, context):
-        logging.debug("SD request for client: %s", request.clientid)
+        LOGGER.debug("SD request for client: %s", request.clientid)
         success = self.registry.set_client_status(
             request.clientid,
             ClientStatus.shutdown)
@@ -79,13 +94,13 @@ class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
 def notify_grpc(client_id, registry):
     # send stdout msg for go-plugin to understand...
     grpc_msg = registry.get_grpc_msg()
-    logging.info("client [%s] gRPC message: %s", client_id, grpc_msg)
+    LOGGER.info("client [%s] gRPC message: %s", client_id, grpc_msg)
     print(grpc_msg)
     sys.stdout.flush()
 
 def register_client(registry, client_id):
     if not registry.register_client(client_id, ClientStatus.running):
-        logging.error(
+        LOGGER.error(
             'netapp API could not register client: %s', client_id)
         return False
 
@@ -94,7 +109,7 @@ def register_client(registry, client_id):
 def unregister_client(registry, client_id):
     status = registry.unregister_client(client_id)
     if ClientStatus.is_error(status):
-        logging.error(
+        LOGGER.error(
             'registry unregister client status error: %s', status.value)
         return False
 
@@ -120,7 +135,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     # generate gRPC connection message and store in registry
     grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
     if not registry.set_grpc_msg(grpc_msg):
-        logging.error('could not set gRPC message in registry')
+        LOGGER.error('could not set gRPC message in registry')
 
         registry.shutdown()
 
@@ -132,7 +147,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
     # register client
     if not register_client(registry, client_id):
-        logging.error('register server start client in registry')
+        LOGGER.error('register server start client in registry')
 
         registry.shutdown()
 
@@ -155,14 +170,14 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     server.add_insecure_port(host + ':' + port)
     server.start()
 
-    logging.debug('started GRPC server @ %s:%s', host, port)
+    LOGGER.debug('started GRPC server @ %s:%s', host, port)
 
     # let GRPC know we are here and good...
     notify_grpc(client_id, registry)
 
     # set registry status to running
     if not registry.set_api_status(ApiStatus.running):
-        logging.error('could not set api status in registry')
+        LOGGER.error('could not set api status in registry')
 
         server.stop(0)
         registry.shutdown()
@@ -178,7 +193,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     with open(RUNNING_FILE, 'a'):
         os.utime(RUNNING_FILE, None)
 
-    logging.debug('running file created')
+    LOGGER.debug('running file created')
 
     try:
         while call_counter.value() > 0:
@@ -188,7 +203,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
             # reset count calls (NOTE: to 0!)
             call_counter.reset()
             
-            logging.debug("was needed %d times, looping...", call_cnt)
+            LOGGER.debug("was needed %d times, looping...", call_cnt)
 
             # wait for CHECK_TIMEOUT to receive calls
             time.sleep(CHECK_TIMEOUT)
@@ -196,7 +211,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     except KeyboardInterrupt:
         pass
 
-    logging.debug("left while loop, issuing server.stop()")   
+    LOGGER.debug("left while loop, issuing server.stop()")   
     unregister_client(registry, client_id)
     server.stop(0)
     os.remove(RUNNING_FILE)     # making sure we are not running
@@ -207,7 +222,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
     reg_server.terminate()
     reg_server.join()
-    logging.debug("exiting netapp API serve()")
+    LOGGER.debug("exiting netapp API serve()")
 
 
 if __name__ == '__main__':
@@ -216,13 +231,13 @@ if __name__ == '__main__':
     arg_cnt = len(sys.argv) - 1
 
     if arg_cnt != 2:
-        logging.error('netapp API must be called as: api.py PORT CLIENTID!')
+        LOGGER.error('netapp API must be called as: api.py PORT CLIENTID!')
         sys.exit(1)
 
     parent_pid = os.getppid()
     api_pid = os.getpid()
 
-    logging.info('netapp API starting (PPID, PID): [%d, %d]', parent_pid, api_pid)
+    LOGGER.info('netapp API starting (PPID, PID): [%d, %d]', parent_pid, api_pid)
 
     # retrieve parameters
     api_port = sys.argv[1]
@@ -230,13 +245,13 @@ if __name__ == '__main__':
 
     if os.path.exists(RUNNING_FILE):
         # alreay running, lets do something ugly
-        logging.warn('netapp API already running, doing file waiting...')
+        LOGGER.warn('netapp API already running, doing file waiting...')
 
         # get client registry and verify its still in running status
         registry = RegistryServer.GET_CLIENT_REGISTRY()
         api_status = registry.get_api_status()
         if api_status != ApiStatus.running:
-            logging.error('netapp API not running per client registry')
+            LOGGER.error('netapp API not running per client registry')
             sys.exit(1)
 
         # register client with registry
@@ -250,7 +265,7 @@ if __name__ == '__main__':
         while True:
             status = registry.get_client_status(client_id)
             if ClientStatus.is_error(status):
-                logging.error(
+                LOGGER.error(
                     'registry get client status error: %s', status.value)
                 break
             
@@ -263,9 +278,9 @@ if __name__ == '__main__':
         # unregister client from registry
         unregister_client(registry, client_id)
     else:
-        logging.warn('netapp API not running, start server')
+        LOGGER.warn('netapp API not running, start server')
         serve(client_id, port=api_port)
 
-    logging.info(
+    LOGGER.info(
         'netapp API [%s] exiting (PPID, PID): [%d, %d]', 
         client_id, parent_pid, api_pid)
