@@ -15,7 +15,7 @@ from concurrent import futures
 import sys
 import time
 
-from util import (
+from registry import (
     RegistryServer, 
     ClientStatus, 
     ApiStatus,
@@ -40,8 +40,6 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger('grpcapi')
 
-from apicmd import NetAppCommandExecutor
-
 LOCALHOST = "172.0.0.1"
 CHECK_TIMEOUT = 0.8             # check if api is being used every 800ms
 RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc server is up
@@ -49,14 +47,13 @@ RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc serve
 class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
     """Implementation of NetAppApiServicer."""
 
-    def __init__(self, registry, counter, *args, **kwargs):
+    def __init__(self, registry, counter, executor, *args, **kwargs):
         super(NetAppApiServicer, self).__init__(*args, **kwargs)
         self.registry = registry
         self.counter = counter
+        self.executor = executor
 
-        # create new NetApp Command Executor
-        self.executor = NetAppCommandExecutor() 
-        LOGGER.debug("servicer initialized with call counter")
+        LOGGER.debug("servicer initialized")
 
     def Call(self, request, context):
         LOGGER.debug("Call request: %s", request.cmd)
@@ -129,8 +126,12 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     # create a call counter for call to API
     call_counter = CallCounter(initval=1)
 
-    # create the servicer with this semaphore
-    servicer = NetAppApiServicer(registry, call_counter)
+    # only import command executor for server startup
+    from apicmd import NetAppCommandExecutor
+    # create new NetApp Command Executor
+    executor = NetAppCommandExecutor() 
+    # create the servicer
+    servicer = NetAppApiServicer(registry, call_counter, executor)
 
     # generate gRPC connection message and store in registry
     grpc_msg = "1|1|tcp|" + host + ":" + port + "|grpc"
@@ -225,24 +226,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     LOGGER.debug("exiting netapp API serve()")
 
 
-if __name__ == '__main__':
-
-    # get length of provided arguments after script path
-    arg_cnt = len(sys.argv) - 1
-
-    if arg_cnt != 2:
-        LOGGER.error('netapp API must be called as: api.py PORT CLIENTID!')
-        sys.exit(1)
-
-    parent_pid = os.getppid()
-    api_pid = os.getpid()
-
-    LOGGER.info('netapp API starting (PPID, PID): [%d, %d]', parent_pid, api_pid)
-
-    # retrieve parameters
-    api_port = sys.argv[1]
-    client_id = sys.argv[2]
-
+def run_api(port, client_id, api_pid, parent_pid):
     if os.path.exists(RUNNING_FILE):
         # alreay running, lets do something ugly
         LOGGER.warn('netapp API already running, doing file waiting...')
@@ -284,3 +268,24 @@ if __name__ == '__main__':
     LOGGER.info(
         'netapp API [%s] exiting (PPID, PID): [%d, %d]', 
         client_id, parent_pid, api_pid)
+
+
+if __name__ == '__main__':
+
+    # get length of provided arguments after script path
+    arg_cnt = len(sys.argv) - 1
+
+    if arg_cnt != 2:
+        LOGGER.error('netapp API must be called as: api.py PORT CLIENTID!')
+        sys.exit(1)
+
+    parent_pid = os.getppid()
+    api_pid = os.getpid()
+
+    LOGGER.info('netapp API starting (PPID, PID): [%d, %d]', parent_pid, api_pid)
+
+    # retrieve parameters
+    api_port = sys.argv[1]
+    client_id = sys.argv[2]
+
+    run_api(api_port, client_id, api_pid, parent_pid)

@@ -13,6 +13,10 @@ var APIScripts = []string{
 	"grpcapi_pb2_grpc.py",
 	"grpcapi_pb2.py",
 	"grpcapi.py",
+	"registry.py",
+	"apicmd/__init__.py",
+	"apicmd/system.py",
+	"apicmd/testing.py",
 }
 
 // APIMain is the script to be called from python

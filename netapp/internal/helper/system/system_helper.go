@@ -1,10 +1,6 @@
 package system
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
-
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
 )
 
@@ -26,32 +22,49 @@ type ConnectResponse struct {
 
 // Connect returns ONTAP and OS version from NetApp host
 func Connect(client *pythonapi.NetAppAPI, request *ConnectRequest) (*ConnectResponse, error) {
-	byteReq, err := json.Marshal(request)
-	if err != nil {
-		log.Printf(
-			"[ERROR] could not marshal connect request [%v], got: %s",
-			request, err)
-		return nil, fmt.Errorf("connect request marshal error: %s", err)
-	}
-	succ, errmsg, data, err := client.Call(connectCmd, byteReq)
-	if err != nil {
-		log.Printf("[ERROR] could not execute API connect call, got: %s", err)
-		return nil, err
-	}
-
-	if !succ || errmsg != "" {
-		log.Printf("[WARN] api connect call not successful got: %v", errmsg)
-		return nil, fmt.Errorf("api connect call failed with msg: %v", errmsg)
-	}
-
 	resp := ConnectResponse{}
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		log.Printf(
-			"[ERROR] could not unmarshal api connect response [%v], got: %s",
-			data, err)
-		return nil, fmt.Errorf("connect request unmarshal error: %s", err)
-	}
+	err := pythonapi.MakeAPICall(client, connectCmd, request, &resp)
 
-	return &resp, nil
+	return &resp, err
+}
+
+const getNodeCmd = "SYS.GET.NODE"
+
+// GetNodeRequest to get node information from NetApp
+type GetNodeRequest struct {
+	Name string `json:"name,omitempty"`
+	UUID string `json:"uuid,omitempty"`
+}
+
+// GetNodeResponse contains node information for Terraform
+type GetNodeResponse struct {
+	Name    string `json:"name"`
+	Serial  string `json:"serial"`
+	ID      string `json:"id"`
+	UUID    string `json:"uuid"`
+	Version string `json:"version"`
+	Healty  bool   `json:"healthy"`
+	Uptime  int    `json:"uptime"`
+}
+
+// GetNodeByName to find node for a given name
+func GetNodeByName(client *pythonapi.NetAppAPI, name string) (*GetNodeResponse, error) {
+	request := &GetNodeRequest{
+		Name: name, UUID: "",
+	}
+	resp := GetNodeResponse{}
+	err := pythonapi.MakeAPICall(client, getNodeCmd, request, &resp)
+
+	return &resp, err
+}
+
+// GetNodeByUUID to retrieve NetApp node data for UUID / Terraform resource ID
+func GetNodeByUUID(client *pythonapi.NetAppAPI, uuid string) (*GetNodeResponse, error) {
+	request := &GetNodeRequest{
+		Name: "", UUID: uuid,
+	}
+	resp := GetNodeResponse{}
+	err := pythonapi.MakeAPICall(client, getNodeCmd, request, &resp)
+
+	return &resp, err
 }

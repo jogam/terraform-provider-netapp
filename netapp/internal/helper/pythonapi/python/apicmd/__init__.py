@@ -74,8 +74,19 @@ class NetAppCommand(object):
         return NetAppCommand.available_implementations[cmd_name]
 
     @staticmethod
-    def __CREATE_FAIL_RESONSE(msg):
+    def _CREATE_FAIL_RESPONSE(msg):
         return { 'success': False, 'errmsg': msg, 'data': {} }
+
+    @staticmethod
+    def _INVOKE_CHECK(server, request, cmd_name):
+        response = server.invoke_elem(request)
+        err_resp = None
+        if response.results_errno() is not 0:
+            err_resp = NetAppCommand._CREATE_FAIL_RESPONSE(
+                '[' + cmd_name + '] returned: '
+                + response.sprintf())
+
+        return response, err_resp
 
     def execute(self, server, cmd_data_json):
         '''

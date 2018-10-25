@@ -11,13 +11,13 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	pyapi "github.com/jogam/terraform-provider-netapp/netapp/internal/grpcapi"
+	grpcpyapi "github.com/jogam/terraform-provider-netapp/netapp/internal/grpcapi"
 )
 
 // NetAppAPI the structure for the Python API interaction
 // to be refined access to Python API
 type NetAppAPI struct {
-	pyapi.PythonAPI
+	grpcpyapi.PythonAPI
 	client   *plugin.Client
 	clientID string
 }
@@ -26,7 +26,7 @@ var requiredAPIScripts = append([]string{
 	"scripts/setup_virtualenv.sh",
 	"scripts/start_api.sh",
 	"requirements.txt",
-}, pyapi.APIScripts...)
+}, grpcpyapi.APIScripts...)
 
 func apiUp(apiFolder string) bool {
 	if _, err := os.Stat(filepath.Join(
@@ -121,13 +121,13 @@ func CreateAPI(
 
 	// start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: pyapi.Handshake,
-		Plugins:         pyapi.PluginMap,
+		HandshakeConfig: grpcpyapi.Handshake,
+		Plugins:         grpcpyapi.PluginMap,
 		Cmd: exec.Command("sh", "-c",
 			fmt.Sprintf("%v %v %v %v %v %v %v",
 				startupFilePath,
 				folder, sdkroot, regport, // shift arguments
-				pyapi.APIMain, apiport, clientID)),
+				grpcpyapi.APIMain, apiport, clientID)),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
@@ -158,7 +158,7 @@ func CreateAPI(
 
 	// We should have an API now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
-	apiplug := raw.(pyapi.PythonAPI)
+	apiplug := raw.(grpcpyapi.PythonAPI)
 
 	log.Printf("[INFO] client plugin interface taken")
 

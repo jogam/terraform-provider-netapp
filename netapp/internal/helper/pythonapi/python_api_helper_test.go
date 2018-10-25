@@ -1,9 +1,7 @@
 package pythonapi
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,34 +25,9 @@ type KeyValueResponse struct {
 
 // TestKeyValue executes a KeyValue API test call
 func testKeyValue(client *NetAppAPI, request *KeyValueRequest) (*KeyValueResponse, error) {
-	byteReq, err := json.Marshal(request)
-	if err != nil {
-		log.Printf(
-			"[ERROR] could not marshal keyvalue request [%v], got: %s",
-			request, err)
-		return nil, fmt.Errorf("keyvalue request marshal error: %s", err)
-	}
-	succ, errmsg, data, err := client.Call(testKeyValueCmd, byteReq)
-	if err != nil {
-		log.Printf("[ERROR] could not execute API test keyvalue call, got: %s", err)
-		return nil, err
-	}
-
-	if !succ || errmsg != "" {
-		log.Printf("[WARN] api keyvalue call not successful got: %v", errmsg)
-		return nil, fmt.Errorf("api keyvalue call failed with msg: %v", errmsg)
-	}
-
 	resp := KeyValueResponse{}
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		log.Printf(
-			"[ERROR] could not unmarshal api keyvalue call response [%v], got: %s",
-			data, err)
-		return nil, fmt.Errorf("keyvalue call request unmarshal error: %s", err)
-	}
-
-	return &resp, nil
+	err := MakeAPICall(client, testKeyValueCmd, request, &resp)
+	return &resp, err
 }
 
 func rwTest(
