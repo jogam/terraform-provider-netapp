@@ -78,9 +78,9 @@ func Provider() terraform.ResourceProvider {
 			// },
 		},
 
-		// ResourcesMap: map[string]*schema.Resource{
-		// 	"netapp_key_value": resourceNetappKeyValue(),
-		// },
+		ResourcesMap: map[string]*schema.Resource{
+			"netapp_port": resourceNetAppPort(),
+		},
 
 		DataSourcesMap: map[string]*schema.Resource{
 			"netapp_node": dataSourceNetAppNode(),

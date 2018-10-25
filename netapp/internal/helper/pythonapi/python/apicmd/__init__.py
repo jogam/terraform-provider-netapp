@@ -74,6 +74,29 @@ class NetAppCommand(object):
         return NetAppCommand.available_implementations[cmd_name]
 
     @staticmethod
+    def _GET_STRING(na_elem, key):
+        return na_elem.child_get_string(key)
+
+    @staticmethod
+    def _GET_BOOL(na_elem, key):
+        value = NetAppCommand._GET_STRING(na_elem, key)
+        return True if value == 'true' else False
+
+    @staticmethod
+    def _GET_INT(na_elem, key):
+        value = NetAppCommand._GET_STRING(na_elem, key)
+        if not value:
+            return -1
+            
+        return int(value) if value.isdigit() else -1
+
+    @staticmethod
+    def _CREATE_EMPTY_RESPONSE(success, msg):
+        return { 
+            'success': success, 'errmsg': msg,
+            'data': {'dummy': 1} }
+
+    @staticmethod
     def _CREATE_FAIL_RESPONSE(msg):
         return { 'success': False, 'errmsg': msg, 'data': {} }
 
@@ -204,12 +227,35 @@ class NetAppCommandExecutor(object):
         testing_active = cmd_name.startswith('TEST.')
 
         if cmd_name == API_CONNECT_CMD:
-            # get connected and update internal data
-            self.host = cmd_data.get('host', 'HOST-ERROR')
-            self.user = cmd_data.get('user', 'USER-ERROR')
-            self.pwd = cmd_data.get('pwd', 'PWD-ERROR')
+            # get command data
+            host = cmd_data.get('host', 'HOST-ERROR')
+            user = cmd_data.get('user', 'USER-ERROR')
+            pwd = cmd_data.get('pwd', 'PWD-ERROR')
 
-            cmd_name = 'GET.SYS.INFO'
+            # check for changes and if already connected
+            if (
+                    host == self.host and
+                    user == self.user and
+                    pwd == self.pwd and
+                    self.connected):
+
+                # already connected and all setup, just return data
+                res_data_json = {}
+                res_data_json['version_ontap'] = (
+                    str(self.ontap_major_version) + '.'
+                    + str(self.ontap_minor_version))
+                res_data_json['version_os'] = self.os_version
+
+                res_bytes = self.__JSON_TO_BYTES(res_data_json)
+
+                return True, "", res_bytes
+
+            # not connected yet, store data and connect
+            self.host = host
+            self.user = user
+            self.pwd = pwd
+            
+            cmd_name = 'SYS.INFO.GET'
             connect_active = True
 
         cmd = self.__GET_COMMAND(cmd_name)
@@ -243,7 +289,7 @@ class NetAppCommandExecutor(object):
                     'API connect failed with: ' + res_err_msg )
             
             return self.__CREATE_FAIL_RETVAL(
-                'failed cmd [' + cmd_name + '] with' + res_err_msg)
+                'failed cmd [' + cmd_name + '] with ' + res_err_msg)
         
         if len(res_err_msg) > 0:
             LOGGER.warn(

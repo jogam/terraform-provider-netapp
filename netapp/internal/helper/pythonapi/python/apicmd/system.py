@@ -10,7 +10,7 @@ class InfoCommand(NetAppCommand):
 
     @classmethod
     def get_name(cls):
-        return 'GET.SYS.INFO'
+        return 'SYS.INFO.GET'
 
     def execute(self, server, cmd_data_json):
         call = NaElement("system-get-ontapi-version")
@@ -59,11 +59,11 @@ def secondsToText(secs):
 	]))
     return result
 
-class GetNodeCommand(NetAppCommand):
+class NodeGetCommand(NetAppCommand):
 
     @classmethod
     def get_name(cls):
-        return 'SYS.GET.NODE'
+        return 'SYS.NODE.GET'
 
     def execute(self, server, cmd_data_json):
         # create the node details query first to see if valid
@@ -138,3 +138,110 @@ class GetNodeCommand(NetAppCommand):
                 "healthy": healthy,
                 "uptime": uptime
             }}
+
+class PortGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'SYS.PORT.GET'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "port" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'get port request must have node and port defined, got: '
+                + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        port = cmd_data_json["port"]
+        cmd = "net-port-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qe_npi = NaElement("net-port-info")
+        qe_npi.child_add_string("node", node)
+        qe_npi.child_add_string("port", port)
+        qe.child_add(qe_npi)
+        call.child_add(qe)
+
+        des_attr = NaElement("desired-attributes")
+        npi = NaElement("net-port-info")
+        npi.child_add_string("node","<node>")
+        npi.child_add_string("port","<port>")
+        npi.child_add_string("autorevert-delay","<autorevert-delay>")
+        npi.child_add_string("ignore-health-status","<ignore-health-status>")
+        npi.child_add_string("ipspace","<ipspace>")
+        npi.child_add_string("role","<role>")
+        npi.child_add_string("is-administrative-up","<is-administrative-up>")
+        npi.child_add_string("mtu-admin","<mtu-admin>")
+        npi.child_add_string("is-administrative-auto-negotiate","<is-administrative-auto-negotiate>")
+        npi.child_add_string("administrative-speed","<administrative-speed>")
+        npi.child_add_string("administrative-duplex","<administrative-duplex>")
+        npi.child_add_string("administrative-flowcontrol","<administrative-flowcontrol>")
+        npi.child_add_string("link-status","<link-status>")
+        npi.child_add_string("health-status","<health-status>")
+        npi.child_add_string("mac-address","<mac-address>")
+        npi.child_add_string("broadcast-domain","<broadcast-domain>")
+        npi.child_add_string("mtu","<mtu>")
+        npi.child_add_string("is-operational-auto-negotiate","<is-operational-auto-negotiate>")
+        npi.child_add_string("operational-speed","<operational-speed>")
+        npi.child_add_string("operational-duplex","<operational-duplex>")
+        npi.child_add_string("operational-flowcontrol","<operational-flowcontrol>")
+        des_attr.child_add(npi)
+        call.child_add(des_attr)
+        
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, 
+            cmd + ": " + node + ":" + port)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        port_cnt = resp.child_get_int('num-records')
+        if not port_cnt or port_cnt > 1:
+            # either None or 0 evaluates to False
+            return self._CREATE_FAIL_RESPONSE(
+                'no ports or too many found for query: ['
+                + str(cmd_data_json) + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no port data found in: '
+                + resp.sprintf())
+
+        port_info = resp.child_get("attributes-list").children_get()[0]
+
+        dd = {
+            "node": self._GET_STRING(port_info, "node"),
+            "port": self._GET_STRING(port_info, "port"),
+
+            "auto_rev_delay": self._GET_INT(port_info, "autorevert-delay"),
+            "ignr_health": self._GET_BOOL(port_info, "ignore-health-status"),
+            "ipspace": self._GET_STRING(port_info, "ipspace"),
+            "role": self._GET_STRING(port_info, "role"),
+
+            "admin_up": self._GET_BOOL(port_info, "is-administrative-up"),
+            "admin_mtu": self._GET_INT(port_info, "mtu-admin"),
+            "admin_auto": self._GET_BOOL(port_info, "is-administrative-auto-negotiate"),
+            "admin_speed": self._GET_STRING(port_info, "administrative-speed"),
+            "admin_duplex": self._GET_STRING(port_info, "administrative-duplex"),
+            "admin_flow": self._GET_STRING(port_info, "administrative-flowcontrol"),
+
+            "status": self._GET_STRING(port_info, "link-status"),
+            "health": self._GET_STRING(port_info, "health-status"),
+            "mac": self._GET_STRING(port_info, "mac-address"),
+            "broadcast_domain": self._GET_STRING(port_info, "broadcast-domain"),
+            "mtu": self._GET_INT(port_info, "mtu"),
+            "auto": self._GET_BOOL(port_info, "is-operational-auto-negotiate"),
+            "speed": self._GET_STRING(port_info, "operational-speed"),
+            "duplex": self._GET_STRING(port_info, "operational-duplex"),
+            "flow": self._GET_STRING(port_info, "operational-flowcontrol")
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}

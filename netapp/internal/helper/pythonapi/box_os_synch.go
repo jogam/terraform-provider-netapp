@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/gobuffalo/packr"
 )
@@ -110,7 +109,7 @@ func SynchBoxToOS(folder string, requiredFiles *[]string) (*SyncResult, error) {
 		}
 
 		// check that all import files are there and available!
-		log.Infof("box file [%v] avail: %v updated: %v",
+		log.Printf("[INFO] box file [%v] avail: %v updated: %v",
 			res.boxpath, res.available, res.updated)
 		files = append(files, fileSyncResult{
 			res.boxpath, res.ospath, res.available, res.updated})
@@ -135,7 +134,7 @@ func DirDeleteRecursive(path string) error {
 		return err
 	}
 	for _, name := range names {
-		log.Infof("removeall on: %v", name)
+		log.Printf("[INFO] removeall on: %v", name)
 		err = os.RemoveAll(filepath.Join(path, name))
 		if err != nil {
 			return err
@@ -240,7 +239,7 @@ func processFilePath(osRoot string, path string, box packr.Box) prjFileResult {
 	boxfMD5 := md5.Sum(boxFileData)
 	osfMD5 := md5.Sum(osFileData)
 
-	log.Debugf("processing path [%v] box vs OS: %v vs %v", path, boxfMD5, osfMD5)
+	log.Printf("[DEBUG] processing path [%v] box vs OS: %v vs %v", path, boxfMD5, osfMD5)
 
 	if boxfMD5 != osfMD5 {
 		// OS file different from package file, needs writing

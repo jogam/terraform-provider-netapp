@@ -6,6 +6,11 @@ import (
 	"log"
 )
 
+// EmptyResponse for API calls without return value
+type EmptyResponse struct {
+	Dummy int `json:"dummy"`
+}
+
 // MakeAPICall realizes the Marshall/Unmarshall and actual API call
 func MakeAPICall(
 	client *NetAppAPI, cmdName string,
