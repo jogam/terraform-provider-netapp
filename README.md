@@ -9,7 +9,7 @@ Terraform Provider
 Maintainers
 -----------
 
-This provider plugin is being developped by jogam.
+This provider plugin is being developed by jogam.
 
 Requirements
 ------------

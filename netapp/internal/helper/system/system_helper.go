@@ -30,14 +30,14 @@ func Connect(client *pythonapi.NetAppAPI, request *ConnectRequest) (*ConnectResp
 
 const nodeGetCmd = "SYS.NODE.GET"
 
-// GetNodeRequest to get node information from NetApp
-type GetNodeRequest struct {
+// NodeGetRequest to get node information from NetApp
+type NodeGetRequest struct {
 	Name string `json:"name,omitempty"`
 	UUID string `json:"uuid,omitempty"`
 }
 
-// GetNodeResponse contains node information for Terraform
-type GetNodeResponse struct {
+// NodeGetResponse contains node information for Terraform
+type NodeGetResponse struct {
 	Name    string `json:"name"`
 	Serial  string `json:"serial"`
 	ID      string `json:"id"`
@@ -47,23 +47,23 @@ type GetNodeResponse struct {
 	Uptime  int    `json:"uptime"`
 }
 
-// GetNodeByName to find node for a given name
-func GetNodeByName(client *pythonapi.NetAppAPI, name string) (*GetNodeResponse, error) {
-	request := &GetNodeRequest{
+// NodeGetByName to find node for a given name
+func NodeGetByName(client *pythonapi.NetAppAPI, name string) (*NodeGetResponse, error) {
+	request := &NodeGetRequest{
 		Name: name, UUID: "",
 	}
-	resp := GetNodeResponse{}
+	resp := NodeGetResponse{}
 	err := pythonapi.MakeAPICall(client, nodeGetCmd, request, &resp)
 
 	return &resp, err
 }
 
-// GetNodeByUUID to retrieve NetApp node data for UUID / Terraform resource ID
-func GetNodeByUUID(client *pythonapi.NetAppAPI, uuid string) (*GetNodeResponse, error) {
-	request := &GetNodeRequest{
+// NodeGetByUUID to retrieve NetApp node data for UUID / Terraform resource ID
+func NodeGetByUUID(client *pythonapi.NetAppAPI, uuid string) (*NodeGetResponse, error) {
+	request := &NodeGetRequest{
 		Name: "", UUID: uuid,
 	}
-	resp := GetNodeResponse{}
+	resp := NodeGetResponse{}
 	err := pythonapi.MakeAPICall(client, nodeGetCmd, request, &resp)
 
 	return &resp, err
@@ -71,13 +71,13 @@ func GetNodeByUUID(client *pythonapi.NetAppAPI, uuid string) (*GetNodeResponse, 
 
 const portGetInfoCmd = "SYS.PORT.GET"
 
-type GetPortRequest struct {
+type PortGetRequest struct {
 	NodeName string `json:"node"` // <node>
 	PortName string `json:"port"` // <port>
 }
 
 type PortInfo struct {
-	GetPortRequest
+	PortGetRequest
 
 	AutoRevertDelay int    `json:"auto_rev_delay"` // <autorevert-delay>
 	IgnoreHealth    bool   `json:"ignr_health"`    // <ignore-health-status>
@@ -109,11 +109,11 @@ type PortInfo struct {
 	// <vlan-port></vlan-port>
 }
 
-func GetPortByNames(
+func PortGetByNames(
 	client *pythonapi.NetAppAPI,
 	nodeName string, portName string) (*PortInfo, error) {
 
-	request := &GetPortRequest{
+	request := &PortGetRequest{
 		NodeName: nodeName, PortName: portName,
 	}
 	resp := PortInfo{}
@@ -123,24 +123,24 @@ func GetPortByNames(
 
 const portModifyCmd = "SYS.PORT.MODIFY"
 
-type ModifyPortRequest struct {
-	GetPortRequest
-	Up     bool   `json:"up,omitempty"`     // <is-administrative-up>
+type PortModifyRequest struct {
+	PortGetRequest
+	Up     *bool  `json:"up,omitempty"`     // <is-administrative-up>
 	Mtu    int    `json:"mtu,omitempty"`    // <mtu>
-	Auto   bool   `json:"auto,omitempty"`   // <is-administrative-auto-negotiate>
+	Auto   *bool  `json:"auto,omitempty"`   // <is-administrative-auto-negotiate>
 	Duplex string `json:"duplex,omitempty"` // <administrative-duplex>
 	Flow   string `json:"flow,omitempty"`   // <administrative-flowcontrol>
 	Speed  string `json:"speed,omitempty"`  // <administrative-speed>
 
 	AutoRevertDelay int    `json:"auto_rev_delay,omitempty"` // <autorevert-delay>
-	IgnoreHealth    bool   `json:"ignr_health,omitempty"`    // <ignore-health-status>
+	IgnoreHealth    *bool  `json:"ignr_health,omitempty"`    // <ignore-health-status>
 	IPSpace         string `json:"ipspace,omitempty"`        // <ipspace>
 	Role            string `json:"role,omitempty"`           // <role>
 }
 
-func ModifyPort(
+func PortModify(
 	client *pythonapi.NetAppAPI,
-	request *ModifyPortRequest) error {
+	request *PortModifyRequest) error {
 
 	resp := pythonapi.EmptyResponse{}
 	err := pythonapi.MakeAPICall(client, portModifyCmd, request, &resp)

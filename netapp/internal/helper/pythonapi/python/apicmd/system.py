@@ -199,7 +199,7 @@ class PortGetCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        #LOGGER.debug(resp.sprintf())
 
         port_cnt = resp.child_get_int('num-records')
         if not port_cnt or port_cnt > 1:
@@ -245,3 +245,54 @@ class PortGetCommand(NetAppCommand):
 
         return {
             'success' : True, 'errmsg': '', 'data': dd}
+
+class PortModifyCommand(NetAppCommand):
+    __cmd_mapping = {
+        "duplex": "administrative-duplex",
+        "flow": "administrative-flowcontrol",
+        "speed": "administrative-speed",
+        "auto_rev_delay": "autorevert-delay",
+        "ignr_health": "ignore-health-status",
+        "ipspace":"ipspace",
+        "auto": "is-administrative-auto-negotiate",
+        "up": "is-administrative-up",
+        "mtu": "mtu",
+        "role": "role"
+    }
+
+    @classmethod
+    def get_name(cls):
+        return 'SYS.PORT.MODIFY'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "port" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'modify port request must have node and port defined, got: '
+                + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        port = cmd_data_json["port"]
+        cmd = "net-port-modify"
+
+        call = NaElement(cmd)
+        call.child_add_string("node", node)
+        call.child_add_string("port", port)
+
+        for cmd_data_key, netapp_cmd_str in self.__cmd_mapping.items():
+            if cmd_data_key in cmd_data_json:
+                call.child_add_string(
+                    netapp_cmd_str,
+                    str(cmd_data_json[cmd_data_key]))
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, 
+            cmd + ": " + node + ":" + port)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")

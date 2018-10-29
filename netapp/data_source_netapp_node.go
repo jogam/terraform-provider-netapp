@@ -52,7 +52,7 @@ func dataSourceNetAppNode() *schema.Resource {
 func dataSourceNetAppNodeRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*NetAppClient).api
 	nodeName := d.Get("name").(string)
-	resp, err := netappsys.GetNodeByName(client, nodeName)
+	resp, err := netappsys.NodeGetByName(client, nodeName)
 	if err != nil {
 		return err
 	}
