@@ -58,9 +58,8 @@ class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
     def Call(self, request, context):
         LOGGER.debug("Call request: %s", request.cmd)
 
-        # increase the call counter to keep service alive
-        # NOTE: not sure if before or after..
-        self.counter.increment()    
+        # indicate start of call to call counter
+        self.counter.start_call()
 
         # get the executor to execute the command
         succ, errmsg, resp_data = self.executor.execute(
@@ -77,6 +76,10 @@ class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
         resp.success = succ
         resp.errmsg = errmsg
         resp.data = resp_data
+
+        # indicate end of call to call counter
+        self.counter.end_call()
+
         return resp
 
     def Shutdown(self, request, context):
@@ -124,7 +127,7 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     registry = RegistryServer.GET_CLIENT_REGISTRY()
 
     # create a call counter for call to API
-    call_counter = CallCounter(initval=1)
+    call_counter = CallCounter()
 
     # only import command executor for server startup
     from apicmd import NetAppCommandExecutor
@@ -197,14 +200,12 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     LOGGER.debug('running file created')
 
     try:
-        while call_counter.value() > 0:
-            # get the number of calls
-            # NOTE: first run will be 1 to not step out
-            call_cnt = call_counter.value()
-            # reset count calls (NOTE: to 0!)
-            call_counter.reset()
-            
-            LOGGER.debug("was needed %d times, looping...", call_cnt)
+        # check if counter thinks we should continue
+        # either by init or calls received/pending
+        while call_counter.stay_alive():
+            # get the number of calls received + reset
+            call_cnt = call_counter.get_call_cnt()
+            LOGGER.debug("active calls, was needed %d times", call_cnt)
 
             # wait for CHECK_TIMEOUT to receive calls
             time.sleep(CHECK_TIMEOUT)

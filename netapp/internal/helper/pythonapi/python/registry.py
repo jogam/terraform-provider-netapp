@@ -268,17 +268,45 @@ class CallCounter(object):
     inspired by: https://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing
     '''
 
-    def __init__(self, initval=0):
-        self.val = Value('i', initval)
+    def __init__(self, init_alive=True):
+        self.call_count = Value('i', 0)
+        self.active_calls = Value('i', 0)
+        self.init_alive = init_alive
         self.lock = Lock()
 
-    def increment(self):
+    def start_call(self):
         with self.lock:
-            self.val.value += 1
+            self.call_count.value += 1
+            self.active_calls.value += 1
 
-    def value(self):
+    def end_call(self):
         with self.lock:
-            return self.val.value
-    def reset(self, initval=0):
+            self.active_calls.value -= 1
+
+    def get_call_cnt(self, reset=True):
+        ccnt = 0
         with self.lock:
-            self.val.value = initval
+            ccnt = self.call_count.value
+            if reset:
+                self.call_count.value = 0
+            
+        return ccnt
+
+    def stay_alive(self):
+        if self.init_alive:
+            # initial stay alive return req'd
+            self.init_alive = False
+            return True
+
+        if self.get_call_cnt(reset=False) > 0:
+            # need to stay alive non-zero call count
+            return True
+
+        with self.lock:
+            # stay alive on non-ended active calls
+            return self.active_calls.value > 0
+
+    def reset(self):
+        with self.lock:
+            self.call_count.value = 0
+            self.active_calls.value = 0

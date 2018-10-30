@@ -3,6 +3,8 @@ package netapp
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 	netappsys "github.com/jogam/terraform-provider-netapp/netapp/internal/helper/system"
@@ -203,31 +205,71 @@ func resourceNetAppPortCreate(d *schema.ResourceData, meta interface{}) error {
 	return resourceNetAppPortUpdate(d, meta)
 }
 
-func writeToSchemaIfInCfg(d *schema.ResourceData, key string, value interface{}) error {
+type ParamDefinition struct {
+	Value *string
+	Kind  reflect.Kind
+}
+
+func writeToSchema(
+	d *schema.ResourceData,
+	key string, param ParamDefinition) error {
+	value := *param.Value
+	if len(strings.TrimSpace(value)) == 0 {
+		// no value present, do nothing
+		return nil
+	}
+
+	var newVal interface{}
+	var err error
+
+	switch param.Kind {
+	case reflect.Int:
+		newVal, err = strconv.Atoi(value)
+	case reflect.String:
+		newVal = value
+	case reflect.Bool:
+		newVal, err = strconv.ParseBool(value)
+	default:
+		return fmt.Errorf("unsupported datatype: %s", param.Kind)
+	}
+
+	if err != nil {
+		return fmt.Errorf(
+			"could not convert [%s = %s], error: %s",
+			key, value, err)
+	}
+	return d.Set(key, newVal)
+}
+
+func writeToSchemaIfInCfg(
+	d *schema.ResourceData,
+	key string, param ParamDefinition) error {
 	_, isCfg := d.GetOk(key)
 	if isCfg {
-		if err := d.Set(key, value); err != nil {
-			return err
-		}
+		return writeToSchema(d, key, param)
 	}
 
 	return nil
 }
 
-func writeToValueIfInCfg(d *schema.ResourceData, key string, value *reflect.Value) (bool, error) {
+func writeToValueIfInCfg(
+	d *schema.ResourceData,
+	key string, param ParamDefinition) (bool, error) {
 	cfgValue, isSet := d.GetOkExists(key)
 	// changed check removed, does not seem to work...
 	if isSet {
-		v := value.Elem()
-		switch v.Kind() {
+		dest := param.Value
+		switch param.Kind {
 		case reflect.Int:
-			v.SetInt(int64(cfgValue.(int)))
+			intVal := cfgValue.(int)
+			*dest = strconv.Itoa(intVal)
 		case reflect.String:
-			v.SetString(cfgValue.(string))
+			*dest = cfgValue.(string)
 		case reflect.Bool:
-			v.SetBool(cfgValue.(bool)) // TODO: attempt to write to address NIL!!
+			boolVal := cfgValue.(bool)
+			*dest = strconv.FormatBool(boolVal)
 		default:
-			return false, fmt.Errorf("unsupported datatype: %s", v.Kind())
+			return false, fmt.Errorf("unsupported datatype: %s", param.Kind)
 		}
 
 		return true, nil
@@ -253,14 +295,14 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	// write back admin parameters if they are set in resource data
-	for key, value := range map[string]interface{}{
-		"admin_up":         resp.AdminUp,
-		"admin_mtu":        resp.AdminMtu,
-		"autorevert_delay": resp.AutoRevertDelay,
-		"ignore_health":    resp.IgnoreHealth,
-		"ipspace":          resp.IPSpace,
-		"role":             resp.Role} {
-		if err = writeToSchemaIfInCfg(d, key, value); err != nil {
+	for key, param := range map[string]ParamDefinition{
+		"admin_up":         ParamDefinition{&resp.AdminUp, reflect.Bool},
+		"admin_mtu":        ParamDefinition{&resp.AdminMtu, reflect.Int},
+		"autorevert_delay": ParamDefinition{&resp.AutoRevertDelay, reflect.Int},
+		"ignore_health":    ParamDefinition{&resp.IgnoreHealth, reflect.Bool},
+		"ipspace":          ParamDefinition{&resp.IPSpace, reflect.String},
+		"role":             ParamDefinition{&resp.Role, reflect.String}} {
+		if err = writeToSchemaIfInCfg(d, key, param); err != nil {
 			return err
 		}
 	}
@@ -269,18 +311,24 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 	if isCfgAdmin {
 		// user cares about auto-negotiation
 		cfgAdminAuto := cfgAdmin.(bool)
-		if err = d.Set("admin_auto", resp.AdminAuto); err != nil {
+
+		runAdminAuto, err := strconv.ParseBool(resp.AdminAuto)
+		if err != nil {
+			return fmt.Errorf("auto-negotiation configured but not reported")
+		}
+
+		if err = d.Set("admin_auto", runAdminAuto); err != nil {
 			return err
 		}
 
-		if !cfgAdminAuto && !resp.AdminAuto {
+		if !cfgAdminAuto && !runAdminAuto {
 			// autonegotiation true in neither requested nor status
 			// read back the admin settings from response
-			for key, value := range map[string]interface{}{
-				"admin_speed":  resp.AdminSpeed,
-				"admin_duplex": resp.AdminDuplex,
-				"admin_flow":   resp.AdminFlow} {
-				if err = d.Set(key, value); err != nil {
+			for key, param := range map[string]ParamDefinition{
+				"admin_speed":  ParamDefinition{&resp.AdminSpeed, reflect.String},
+				"admin_duplex": ParamDefinition{&resp.AdminDuplex, reflect.String},
+				"admin_flow":   ParamDefinition{&resp.AdminFlow, reflect.String}} {
+				if err = writeToSchema(d, key, param); err != nil {
 					return err
 				}
 			}
@@ -288,21 +336,21 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	// status write back - computed/info params, e.g. possibly not specified by user
-	for key, value := range map[string]interface{}{
-		"status":                  resp.Status,
-		"health":                  resp.Health,
-		"mac_address":             resp.Mac,
-		"broadcast_domain":        resp.BroadCastDomain,
-		"status_ipspace":          resp.IPSpace,
-		"status_mtu":              resp.Mtu,
-		"status_auto":             resp.Auto,
-		"status_speed":            resp.Speed,
-		"status_duplex":           resp.Duplex,
-		"status_flow":             resp.Flow,
-		"status_autorevert_delay": resp.AutoRevertDelay,
-		"status_ignore_health":    resp.IgnoreHealth,
-		"status_role":             resp.Role} {
-		if err = d.Set(key, value); err != nil {
+	for key, param := range map[string]ParamDefinition{
+		"status":                  ParamDefinition{&resp.Status, reflect.String},
+		"health":                  ParamDefinition{&resp.Health, reflect.String},
+		"mac_address":             ParamDefinition{&resp.Mac, reflect.String},
+		"broadcast_domain":        ParamDefinition{&resp.BroadCastDomain, reflect.String},
+		"status_ipspace":          ParamDefinition{&resp.IPSpace, reflect.String},
+		"status_mtu":              ParamDefinition{&resp.Mtu, reflect.Int},
+		"status_auto":             ParamDefinition{&resp.Auto, reflect.Bool},
+		"status_speed":            ParamDefinition{&resp.Speed, reflect.String},
+		"status_duplex":           ParamDefinition{&resp.Duplex, reflect.String},
+		"status_flow":             ParamDefinition{&resp.Flow, reflect.String},
+		"status_autorevert_delay": ParamDefinition{&resp.AutoRevertDelay, reflect.Int},
+		"status_ignore_health":    ParamDefinition{&resp.IgnoreHealth, reflect.Bool},
+		"status_role":             ParamDefinition{&resp.Role, reflect.String}} {
+		if err = writeToSchema(d, key, param); err != nil {
 			return err
 		}
 	}
@@ -329,14 +377,14 @@ func resourceNetAppPortUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	changeCnt := 0
 
-	for key, value := range map[string]reflect.Value{
-		"admin_up":         reflect.ValueOf(req.Up),
-		"admin_mtu":        reflect.ValueOf(&req.Mtu),
-		"autorevert_delay": reflect.ValueOf(&req.AutoRevertDelay),
-		"ignore_health":    reflect.ValueOf(req.IgnoreHealth),
-		"ipspace":          reflect.ValueOf(&req.IPSpace),
-		"role":             reflect.ValueOf(&req.Role)} {
-		written, err := writeToValueIfInCfg(d, key, &value)
+	for key, param := range map[string]ParamDefinition{
+		"admin_up":         ParamDefinition{&req.Up, reflect.Bool},
+		"admin_mtu":        ParamDefinition{&req.Mtu, reflect.Int},
+		"autorevert_delay": ParamDefinition{&req.AutoRevertDelay, reflect.Int},
+		"ignore_health":    ParamDefinition{&req.IgnoreHealth, reflect.Bool},
+		"ipspace":          ParamDefinition{&req.IPSpace, reflect.String},
+		"role":             ParamDefinition{&req.Role, reflect.String}} {
+		written, err := writeToValueIfInCfg(d, key, param)
 		if err != nil {
 			return err
 		}
@@ -351,17 +399,17 @@ func resourceNetAppPortUpdate(d *schema.ResourceData, meta interface{}) error {
 	if isSet {
 		isAuto = cfgValue.(bool)
 		if d.HasChange("admin_auto") { // probably does not work either
-			req.Auto = &isAuto
+			req.Auto = strconv.FormatBool(isAuto)
 			changeCnt++
 		}
 	}
 
 	if !isAuto {
-		for key, value := range map[string]reflect.Value{
-			"admin_speed":  reflect.ValueOf(&req.Speed),
-			"admin_duplex": reflect.ValueOf(&req.Duplex),
-			"admin_flow":   reflect.ValueOf(&req.Flow)} {
-			written, err := writeToValueIfInCfg(d, key, &value)
+		for key, param := range map[string]ParamDefinition{
+			"admin_speed":  ParamDefinition{&req.Speed, reflect.String},
+			"admin_duplex": ParamDefinition{&req.Duplex, reflect.String},
+			"admin_flow":   ParamDefinition{&req.Flow, reflect.String}} {
+			written, err := writeToValueIfInCfg(d, key, param)
 			if err != nil {
 				return err
 			}

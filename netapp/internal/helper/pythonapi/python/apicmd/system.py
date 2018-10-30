@@ -118,14 +118,13 @@ class NodeGetCommand(NetAppCommand):
                 + resp.sprintf())
 
         node_detail = resp.child_get("attributes-list").children_get()[0]
-        uuid = node_detail.child_get_string("node-uuid")
-        name = node_detail.child_get_string("node")
-        serial = node_detail.child_get_string("node-serial-number")
-        sysid = node_detail.child_get_string("node-system-id")
-        version = node_detail.child_get_string("product-version")
-        healthy = node_detail.child_get_string("is-node-healthy")
-        healthy = True if healthy == 'true' else False
-        uptime = node_detail.child_get_int("node-uptime")
+        uuid = self._GET_STRING(node_detail, "node-uuid")
+        name = self._GET_STRING(node_detail, "node")
+        serial = self._GET_STRING(node_detail, "node-serial-number")
+        sysid = self._GET_STRING(node_detail, "node-system-id")
+        version = self._GET_STRING(node_detail, "product-version")
+        healthy = self._GET_BOOL(node_detail, "is-node-healthy")
+        uptime = self._GET_INT(node_detail, "node-uptime")
 
         return {
             'success' : True, 'errmsg': '', 
@@ -220,14 +219,14 @@ class PortGetCommand(NetAppCommand):
             "node": self._GET_STRING(port_info, "node"),
             "port": self._GET_STRING(port_info, "port"),
 
-            "auto_rev_delay": self._GET_INT(port_info, "autorevert-delay"),
-            "ignr_health": self._GET_BOOL(port_info, "ignore-health-status"),
+            "auto_rev_delay": self._GET_STRING(port_info, "autorevert-delay"),
+            "ignr_health": self._GET_STRING(port_info, "ignore-health-status"),
             "ipspace": self._GET_STRING(port_info, "ipspace"),
             "role": self._GET_STRING(port_info, "role"),
 
-            "admin_up": self._GET_BOOL(port_info, "is-administrative-up"),
-            "admin_mtu": self._GET_INT(port_info, "mtu-admin"),
-            "admin_auto": self._GET_BOOL(port_info, "is-administrative-auto-negotiate"),
+            "admin_up": self._GET_STRING(port_info, "is-administrative-up"),
+            "admin_mtu": self._GET_STRING(port_info, "mtu-admin"),
+            "admin_auto": self._GET_STRING(port_info, "is-administrative-auto-negotiate"),
             "admin_speed": self._GET_STRING(port_info, "administrative-speed"),
             "admin_duplex": self._GET_STRING(port_info, "administrative-duplex"),
             "admin_flow": self._GET_STRING(port_info, "administrative-flowcontrol"),
@@ -236,8 +235,8 @@ class PortGetCommand(NetAppCommand):
             "health": self._GET_STRING(port_info, "health-status"),
             "mac": self._GET_STRING(port_info, "mac-address"),
             "broadcast_domain": self._GET_STRING(port_info, "broadcast-domain"),
-            "mtu": self._GET_INT(port_info, "mtu"),
-            "auto": self._GET_BOOL(port_info, "is-operational-auto-negotiate"),
+            "mtu": self._GET_STRING(port_info, "mtu"),
+            "auto": self._GET_STRING(port_info, "is-operational-auto-negotiate"),
             "speed": self._GET_STRING(port_info, "operational-speed"),
             "duplex": self._GET_STRING(port_info, "operational-duplex"),
             "flow": self._GET_STRING(port_info, "operational-flowcontrol")
@@ -284,15 +283,13 @@ class PortModifyCommand(NetAppCommand):
             if cmd_data_key in cmd_data_json:
                 call.child_add_string(
                     netapp_cmd_str,
-                    str(cmd_data_json[cmd_data_key]))
+                    cmd_data_json[cmd_data_key])
 
-        resp, err_resp = self._INVOKE_CHECK(
+        _, err_resp = self._INVOKE_CHECK(
             server, call, 
             cmd + ": " + node + ":" + port)
         if err_resp:
             return err_resp
-
-        LOGGER.debug(resp.sprintf())
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")

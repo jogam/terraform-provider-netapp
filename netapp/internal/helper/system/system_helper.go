@@ -77,16 +77,17 @@ type PortGetRequest struct {
 }
 
 type PortInfo struct {
+	// all parameters as strings to overcome bool/int omitempty behaviour
 	PortGetRequest
 
-	AutoRevertDelay int    `json:"auto_rev_delay"` // <autorevert-delay>
-	IgnoreHealth    bool   `json:"ignr_health"`    // <ignore-health-status>
+	AutoRevertDelay string `json:"auto_rev_delay"` // <autorevert-delay>
+	IgnoreHealth    string `json:"ignr_health"`    // <ignore-health-status>
 	IPSpace         string `json:"ipspace"`        // <ipspace>
 	Role            string `json:"role"`           // <role></role>
 
-	AdminUp     bool   `json:"admin_up"`     // <is-administrative-up>
-	AdminMtu    int    `json:"admin_mtu"`    // <mtu-admin>
-	AdminAuto   bool   `json:"admin_auto"`   // <is-administrative-auto-negotiate>
+	AdminUp     string `json:"admin_up"`     // <is-administrative-up>
+	AdminMtu    string `json:"admin_mtu"`    // <mtu-admin>
+	AdminAuto   string `json:"admin_auto"`   // <is-administrative-auto-negotiate>
 	AdminSpeed  string `json:"admin_speed"`  // <administrative-speed>
 	AdminDuplex string `json:"admin_duplex"` // <administrative-duplex>
 	AdminFlow   string `json:"admin_flow"`   // <administrative-flowcontrol>
@@ -95,8 +96,8 @@ type PortInfo struct {
 	Health          string `json:"health"`           // <health-status>
 	Mac             string `json:"mac"`              // <mac-address>
 	BroadCastDomain string `json:"broadcast_domain"` // <broadcast-domain>
-	Mtu             int    `json:"mtu"`              // <mtu>
-	Auto            bool   `json:"auto"`             // <is-operational-auto-negotiate>
+	Mtu             string `json:"mtu"`              // <mtu>
+	Auto            string `json:"auto"`             // <is-operational-auto-negotiate>
 	Speed           string `json:"speed"`            // <operational-speed>
 	Duplex          string `json:"duplex"`           // <operational-duplex>
 	Flow            string `json:"flow"`             // <operational-flowcontrol>
@@ -124,16 +125,17 @@ func PortGetByNames(
 const portModifyCmd = "SYS.PORT.MODIFY"
 
 type PortModifyRequest struct {
+	// all parameters as strings to overcome bool/int omitempty behaviour
 	PortGetRequest
-	Up     *bool  `json:"up,omitempty"`     // <is-administrative-up>
-	Mtu    int    `json:"mtu,omitempty"`    // <mtu>
-	Auto   *bool  `json:"auto,omitempty"`   // <is-administrative-auto-negotiate>
+	Up     string `json:"up,omitempty"`     // <is-administrative-up>
+	Mtu    string `json:"mtu,omitempty"`    // <mtu>
+	Auto   string `json:"auto,omitempty"`   // <is-administrative-auto-negotiate>
 	Duplex string `json:"duplex,omitempty"` // <administrative-duplex>
 	Flow   string `json:"flow,omitempty"`   // <administrative-flowcontrol>
 	Speed  string `json:"speed,omitempty"`  // <administrative-speed>
 
-	AutoRevertDelay int    `json:"auto_rev_delay,omitempty"` // <autorevert-delay>
-	IgnoreHealth    *bool  `json:"ignr_health,omitempty"`    // <ignore-health-status>
+	AutoRevertDelay string `json:"auto_rev_delay,omitempty"` // <autorevert-delay>
+	IgnoreHealth    string `json:"ignr_health,omitempty"`    // <ignore-health-status>
 	IPSpace         string `json:"ipspace,omitempty"`        // <ipspace>
 	Role            string `json:"role,omitempty"`           // <role>
 }
