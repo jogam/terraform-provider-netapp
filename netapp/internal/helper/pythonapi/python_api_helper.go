@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/segmentio/ksuid"
 
@@ -31,6 +32,15 @@ var requiredAPIScripts = append([]string{
 func apiUp(apiFolder string) bool {
 	if _, err := os.Stat(filepath.Join(
 		apiFolder, "API_UP")); !os.IsNotExist(err) {
+		return true
+	}
+
+	return false
+}
+
+func apiStopping(apiFolder string) bool {
+	if _, err := os.Stat(filepath.Join(
+		apiFolder, "API_STOPPING")); !os.IsNotExist(err) {
 		return true
 	}
 
@@ -90,6 +100,11 @@ func ensureAPISetup(folder string, sdkroot string, syncResult *SyncResult) error
 func CreateAPI(
 	folder string, sdkroot string, regport string,
 	apiport string) (*NetAppAPI, error) {
+
+	for apiStopping(folder) {
+		// wait for previous server instance to stop
+		time.Sleep(200 * time.Millisecond)
+	}
 
 	// check if API is already running via running file
 	apiRunning := apiUp(folder)

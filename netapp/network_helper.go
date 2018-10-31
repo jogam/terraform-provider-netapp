@@ -15,11 +15,13 @@ func createNetQualifiedName(vlanInfo *netappnw.VlanInfo) string {
 	return builder.String()
 }
 
-func createVlanID(vlanInfo *netappnw.VlanInfo) string {
+func createVlanID(vlanCfg netappnw.VlanConfig) string {
 	var builder strings.Builder
 	fmt.Fprintf(
 		&builder, "%s|%s|%s",
-		vlanInfo.NodeName, vlanInfo.ParentName, vlanInfo.VlanID)
+		vlanCfg.GetNodeName(),
+		vlanCfg.GetParentName(),
+		vlanCfg.GetVlanID())
 	return builder.String()
 }
 

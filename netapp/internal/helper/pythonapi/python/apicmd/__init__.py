@@ -91,6 +91,20 @@ class NetAppCommand(object):
         return int(value) if value.isdigit() else -1
 
     @staticmethod
+    def _GET_CONTENT(na_elem):
+        return na_elem.element['content']
+
+    @staticmethod
+    def _GET_CONTENT_LIST(na_elem, key):
+        values = []
+        if na_elem.child_get(key):
+            for v_elem in na_elem.child_get(key).children_get():
+                values.append(NetAppCommand._GET_CONTENT(v_elem))
+
+        return values
+        
+
+    @staticmethod
     def _CREATE_EMPTY_RESPONSE(success, msg):
         return { 
             'success': success, 'errmsg': msg,

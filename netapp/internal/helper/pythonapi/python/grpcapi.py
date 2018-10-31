@@ -33,7 +33,7 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 # configure logging before command modules import, otherwise logging fails
 logging.basicConfig(
     filename='python_api.log',
-    level=logging.DEBUG,
+    level=logging.INFO,
     format=(
         '[%(asctime)s %(levelname)s][' + str(os.getpid()) 
         + '] @{%(name)s:%(lineno)d} - %(message)s')
@@ -41,8 +41,9 @@ logging.basicConfig(
 LOGGER = logging.getLogger('grpcapi')
 
 LOCALHOST = "172.0.0.1"
-CHECK_TIMEOUT = 0.8             # check if api is being used every 800ms
-RUNNING_FILE = "./API_UP"       # file indicating to outside that API grpc server is up
+CHECK_TIMEOUT = 0.8                 # check if api is being used every 800ms
+RUNNING_FILE = "./API_UP"           # file indicating to outside that API grpc server is up
+STOPPING_FILE = "./API_STOPPING"    # file indicating to outside that API grpc server is shutting down
 
 class NetAppApiServicer(grpcapi_pb2_grpc.GRPCNetAppApiServicer):
     """Implementation of NetAppApiServicer."""
@@ -213,6 +214,10 @@ def serve(client_id, host='127.0.0.1', port='1234'):
     except KeyboardInterrupt:
         pass
 
+    # create stopping status file
+    with open(STOPPING_FILE, 'a'):
+        os.utime(STOPPING_FILE, None)
+
     LOGGER.debug("left while loop, issuing server.stop()")   
     unregister_client(registry, client_id)
     server.stop(0)
@@ -224,6 +229,9 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
     reg_server.terminate()
     reg_server.join()
+
+    os.remove(STOPPING_FILE)     # making sure we also declare stopped
+
     LOGGER.debug("exiting netapp API serve()")
 
 

@@ -2,7 +2,9 @@ package netapp
 
 import (
 	"fmt"
+	"log"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 	netappnw "github.com/jogam/terraform-provider-netapp/netapp/internal/helper/network"
@@ -111,6 +113,15 @@ func resourceNetAppVlanCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 	err = netappnw.VlanCreate(client, req)
 	if err != nil {
+		if strings.Contains(err.Error(), "reason=\"duplicate entry\"") {
+			// duplicate vlan, hint at import feature
+			resID := createVlanID(req)
+			return fmt.Errorf(
+				"vlan [%v] on port [%s] already exists, import via cmd: "+
+					"terraform import $RESNAME$ '%s'",
+				vlanID, parentID, resID)
+		}
+
 		return fmt.Errorf(
 			"vlan ID [%v] on port [%s] create, got: %s",
 			vlanID, parentID, err)
@@ -152,9 +163,11 @@ func resourceNetAppVlanRead(d *schema.ResourceData, meta interface{}) error {
 
 	vgResp, err := netappnw.VlanGet(client, req)
 	if err != nil {
-		return fmt.Errorf(
+		log.Printf(
 			"vlan ID [%v] on port [%s] read, got: %s",
 			vlanID, parentID, err)
+		d.SetId("")
+		return nil
 	}
 
 	if parentID == "" {

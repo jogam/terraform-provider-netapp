@@ -156,3 +156,180 @@ class VlanDeleteCommand(NetAppCommand):
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
+
+class IPSpaceGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'NW.IPSPACE.GET'
+
+    def execute(self, server, cmd_data_json):
+        if "uuid" not in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                'get IPSpace request must have uuid'
+                + ' defined, got: '
+                + str(cmd_data_json))
+
+        uuid = cmd_data_json["uuid"]
+        cmd = "net-ipspaces-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qe_ii = NaElement("net-ipspaces-info")
+        qe_ii.child_add_string("uuid", uuid)
+        qe.child_add(qe_ii)
+        call.child_add(qe)
+
+        des_attr = NaElement("desired-attributes")
+        ii = NaElement("net-ipspaces-info")
+        ii.child_add_string("ipspace","<ipspace>")
+        ii.child_add_string("uuid","<uuid>")
+
+        bcd = NaElement("broadcast-domains")
+        bcd.child_add_string("broadcast-domain-name","<broadcast-domain-name>")
+        ii.child_add(bcd)
+
+        pts = NaElement("ports")
+        pts.child_add_string("net-qualified-port-name","<net-qualified-port-name>")
+        ii.child_add(pts)
+
+        vser = NaElement("vservers")
+        vser.child_add_string("vserver-name","<vserver-name>")
+        ii.child_add(vser)
+
+        des_attr.child_add(ii)
+        call.child_add(des_attr)
+        
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + uuid)
+        if err_resp:
+            return err_resp
+
+        vlan_cnt = self._GET_INT(resp, 'num-records')
+        if not vlan_cnt or vlan_cnt < 1:
+            # either None or 0 evaluates to False
+            return self._CREATE_FAIL_RESPONSE(
+                'no ipspace or too many found for query: ['
+                + str(cmd_data_json) + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no ipspace data found in: '
+                + resp.sprintf())
+
+        ips_info = resp.child_get("attributes-list").children_get()[0]
+
+        dd = {
+            "name": self._GET_STRING(ips_info, "ipspace"),
+            "uuid": self._GET_STRING(ips_info, "uuid"),
+            "bc_domains": self._GET_CONTENT_LIST(ips_info, "broadcast-domains"),
+            "ports":  self._GET_CONTENT_LIST(ips_info, "ports"),
+            "vservers":  self._GET_CONTENT_LIST(ips_info, "vservers")
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class IPSpaceCreateCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'NW.IPSPACE.CREATE'
+
+    def execute(self, server, cmd_data_json):
+        if "name" not in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                'create IPSpace request must have name'
+                + ' defined, got: '
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        cmd = "net-ipspaces-create"
+
+        call = NaElement(cmd)
+        call.child_add_string("ipspace", name)
+        call.child_add_string("return-record", "true")
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        if not (
+            resp.child_get("result") and
+            resp.child_get(
+                "result").child_get("net-ipspaces-info")):
+            return self._CREATE_FAIL_RESPONSE(
+                'no ipspace info received from create, got: '
+                + resp.sprintf())
+
+        ipspace_info = resp.child_get(
+            "result").child_get("net-ipspaces-info")
+        dd = {
+            "uuid": self._GET_STRING(ipspace_info, "uuid")
+        }
+
+        return {
+             'success' : True, 'errmsg': '', 'data': dd}
+
+class IpSpaceDeleteCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'NW.IPSPACE.DELETE'
+
+    def execute(self, server, cmd_data_json):
+        if "name" not in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                'delete ipspace must have name defined, got: '
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        cmd = "net-ipspaces-destroy"
+
+        call = NaElement(cmd)
+        
+        call.child_add_string("ipspace", name)
+
+        _, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
+class IpSpaceUpdateCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'NW.IPSPACE.UPDATE'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "new_name" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'update/rename ipspace must have name'
+                + ' and new_name defined, got: '
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        new_name = cmd_data_json["new_name"]
+        cmd = "net-ipspaces-rename"
+
+        call = NaElement(cmd)
+        
+        call.child_add_string("ipspace", name)
+        call.child_add_string("new-name", new_name)
+
+        _, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " 
+            + name + ' to ' + new_name)
+        if err_resp:
+            return err_resp
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")

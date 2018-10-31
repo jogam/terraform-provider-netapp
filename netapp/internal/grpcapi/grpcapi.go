@@ -17,6 +17,7 @@ var APIScripts = []string{
 	"apicmd/__init__.py",
 	"apicmd/system.py",
 	"apicmd/testing.py",
+	"apicmd/network.py",
 }
 
 // APIMain is the script to be called from python
