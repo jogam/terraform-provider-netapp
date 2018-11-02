@@ -554,21 +554,26 @@ class BcDomainDeleteCommand(NetAppCommand):
         return "NW.BRCDOM.DELETE"
 
     def execute(self, server, cmd_data_json):
-        if "name" not in cmd_data_json:
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json):
             return self._CREATE_FAIL_RESPONSE(
                 "broadcast domain delete commands must"
-                + " have name defined, got: "
+                + " have name and ipspace defined, got: "
                 + str(cmd_data_json))
 
         name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
         cmd = "net-port-broadcast-domain-destroy"
 
         call = NaElement(cmd)
 
         call.child_add_string("broadcast-domain", name)
+        call.child_add_string("ipspace", ipspace)
 
         resp, err_resp = self._INVOKE_CHECK(
-            server, call, cmd + ": " + name)
+            server, call, cmd + ": " + name 
+            + " [" + ipspace+ "]")
         if err_resp:
             return err_resp
 

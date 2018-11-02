@@ -236,6 +236,11 @@ def serve(client_id, host='127.0.0.1', port='1234'):
 
 
 def run_api(port, client_id, api_pid, parent_pid):
+    while os.path.exists(STOPPING_FILE):
+        # just in case we are really coming in
+        #  when everyone is stopping and leaving
+        time.sleep(CHECK_TIMEOUT)
+
     if os.path.exists(RUNNING_FILE):
         # alreay running, lets do something ugly
         LOGGER.warn('netapp API already running, doing file waiting...')
