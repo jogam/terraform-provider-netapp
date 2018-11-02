@@ -11,6 +11,11 @@ type EmptyResponse struct {
 	Dummy int `json:"dummy"`
 }
 
+// ResourceInfo is base struct for NetApp resource Info's returned
+type ResourceInfo struct {
+	NonExist bool `json:"non_exist,omitempty"` // flag to indicate that resource does not exist
+}
+
 // MakeAPICall realizes the Marshall/Unmarshall and actual API call
 func MakeAPICall(
 	client *NetAppAPI, cmdName string,

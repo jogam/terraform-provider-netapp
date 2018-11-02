@@ -6,7 +6,6 @@ from NaServer import NaElement
 
 LOGGER = logging.getLogger(__name__)
 
-
 class VlanGetCommand(NetAppCommand):
 
     @classmethod
@@ -164,20 +163,29 @@ class IPSpaceGetCommand(NetAppCommand):
         return 'NW.IPSPACE.GET'
 
     def execute(self, server, cmd_data_json):
-        if "uuid" not in cmd_data_json:
+        if not (
+            "uuid" in cmd_data_json or
+            "name" in cmd_data_json):
             return self._CREATE_FAIL_RESPONSE(
                 'get IPSpace request must have uuid'
                 + ' defined, got: '
                 + str(cmd_data_json))
 
-        uuid = cmd_data_json["uuid"]
         cmd = "net-ipspaces-get-iter"
 
         call = NaElement(cmd)
 
         qe = NaElement("query")
         qe_ii = NaElement("net-ipspaces-info")
-        qe_ii.child_add_string("uuid", uuid)
+
+        mark = "unknown"
+        if "uuid" in cmd_data_json:
+            mark = cmd_data_json["uuid"]
+            qe_ii.child_add_string("uuid", mark)
+        if "name" in cmd_data_json:
+            mark = cmd_data_json["name"]
+            qe_ii.child_add_string("ipspace", mark)
+
         qe.child_add(qe_ii)
         call.child_add(qe)
 
@@ -202,15 +210,15 @@ class IPSpaceGetCommand(NetAppCommand):
         call.child_add(des_attr)
         
         resp, err_resp = self._INVOKE_CHECK(
-            server, call, cmd + ": " + uuid)
+            server, call, cmd + ": " + mark)
         if err_resp:
             return err_resp
 
         vlan_cnt = self._GET_INT(resp, 'num-records')
-        if not vlan_cnt or vlan_cnt < 1:
-            # either None or 0 evaluates to False
+        if vlan_cnt != 1:
+            # too many vlan's found for query
             return self._CREATE_FAIL_RESPONSE(
-                'no ipspace or too many found for query: ['
+                'too many ipspaces found for query: ['
                 + str(cmd_data_json) + '] result is: '
                 + resp.sprintf())
 
@@ -333,3 +341,242 @@ class IpSpaceUpdateCommand(NetAppCommand):
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
+
+class BcDomainGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.GET"
+
+    def execute(self, server, cmd_data_json):
+        if "name" not in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                "get broadcast domain commands must"
+                + " have name defined, got: "
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        cmd = "net-port-broadcast-domain-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qe_bcdi = NaElement("net-port-broadcast-domain-info")
+        qe_bcdi.child_add_string("broadcast-domain", name)
+        qe.child_add(qe_bcdi)
+        call.child_add(qe)
+
+        dattr = NaElement("desired-attributes")
+        bcdi = NaElement("net-port-broadcast-domain-info")
+        bcdi.child_add_string("broadcast-domain","<broadcast-domain>")
+        bcdi.child_add_string("ipspace","<ipspace>")
+        bcdi.child_add_string("mtu","<mtu>")
+        bcdi.child_add_string("port-update-status-combined","<port-update-status-combined>")
+
+        ports = NaElement("ports")
+        pi = NaElement("port-info")
+        pi.child_add_string("port","<port>")
+        pi.child_add_string("port-update-status","<port-update-status>")
+        pi.child_add_string("port-update-status-details","<port-update-status-details>")        
+        ports.child_add(pi)
+        bcdi.child_add(ports)
+
+        fog = NaElement("failover-groups")
+        fog.child_add_string("failover-group","<failover-group>")
+        bcdi.child_add(fog)
+
+        subs = NaElement("subnet-names")
+        subs.child_add_string("subnet-name","<subnet-name>")        
+        bcdi.child_add(subs)
+
+        dattr.child_add(bcdi)
+
+        call.child_add(dattr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        bcd_cnt = self._GET_INT(resp, 'num-records')
+        if bcd_cnt != 1:
+            # too many bc domains found for query
+            return self._CREATE_FAIL_RESPONSE(
+                'too many broadcast domains found for'
+                + ' query: [' + str(cmd_data_json) + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no broadcast domain info data found in: '
+                + resp.sprintf())
+
+        bcd_info = resp.child_get("attributes-list").children_get()[0]
+
+        dd = {
+            "name": self._GET_STRING(bcd_info, "broadcast-domain"),
+            "mtu": self._GET_STRING(bcd_info, "mtu"),
+            "ipspace": self._GET_STRING(bcd_info, "ipspace"),
+            "update_status": self._GET_STRING(bcd_info, "port-update-status-combined"),
+            "ports": [],
+            "failovergrps":  self._GET_CONTENT_LIST(bcd_info, "failover-groups"),
+            "subnets":  self._GET_CONTENT_LIST(bcd_info, "subnet-names")
+        }
+
+        if bcd_info.child_get("ports"):
+            # port info data available, process
+            for port_info in bcd_info.child_get("ports").children_get():
+                dd['ports'].append({
+                    "name": self._GET_STRING(port_info, "port"),
+                    "update_status": self._GET_STRING(port_info, "port-update-status"),
+                    "status_detail": self._GET_STRING(port_info, "port-update-status-details")
+                })
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class BcDomainStatusCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.STATUS"
+
+    def execute(self, server, cmd_data_json):
+        if "name" not in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                "broadcast domain status commands must"
+                + " have name defined, got: "
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        cmd = "net-port-broadcast-domain-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qe_bcdi = NaElement("net-port-broadcast-domain-info")
+        qe_bcdi.child_add_string("broadcast-domain", name)
+        qe.child_add(qe_bcdi)
+        call.child_add(qe)
+
+        dattr = NaElement("desired-attributes")
+        bcdi = NaElement("net-port-broadcast-domain-info")
+        bcdi.child_add_string("port-update-status-combined","<port-update-status-combined>")
+        dattr.child_add(bcdi)
+
+        call.child_add(dattr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        bcd_cnt = self._GET_INT(resp, 'num-records')
+        if bcd_cnt != 1:
+            # too many bc domains found for query
+            return self._CREATE_FAIL_RESPONSE(
+                'too many broadcast domains found for'
+                + ' query: [' + str(cmd_data_json) + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no broadcast domain info data found in: '
+                + resp.sprintf())
+
+        bcd_info = resp.child_get("attributes-list").children_get()[0]
+
+        dd = {
+            "update_status": self._GET_STRING(bcd_info, "port-update-status-combined"),
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class BcDomainCreateCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.CREATE"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "mtu"  not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "broadcast domain create commands must"
+                + " have name and mtu defined, got: "
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        mtu = cmd_data_json["mtu"]
+        cmd = "net-port-broadcast-domain-create"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("broadcast-domain", name)
+        call.child_add_string("mtu", mtu)
+
+        if "ipspace" in cmd_data_json:
+            call.child_add_string("ipspace", cmd_data_json["ipspace"])
+
+        if "ports" in cmd_data_json:
+            ports = NaElement("ports")
+
+            for port_name in cmd_data_json["ports"]:
+                ports.child_add_string(
+                    "net-qualified-port-name", port_name)
+
+            call.child_add(ports)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        dd = {
+            "update_status": self._GET_STRING(resp, "port-update-status-combined"),
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class BcDomainDeleteCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.DELETE"
+
+    def execute(self, server, cmd_data_json):
+        if "name" not in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                "broadcast domain delete commands must"
+                + " have name defined, got: "
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        cmd = "net-port-broadcast-domain-destroy"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("broadcast-domain", name)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        dd = {
+            "update_status": self._GET_STRING(resp, "port-update-status-combined"),
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}

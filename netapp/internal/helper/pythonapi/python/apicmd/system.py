@@ -104,11 +104,11 @@ class NodeGetCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        node_cnt = resp.child_get_int('num-records')
-        if not node_cnt or node_cnt > 1:
-            # either None or 0 evaluates to False
+        node_cnt = self._GET_INT(resp, 'num-records')
+        if node_cnt != 1:
+            # too many nodes found for query
             return self._CREATE_FAIL_RESPONSE(
-                'no nodes or too many found for query: ['
+                'too many nodes found for query: ['
                 + str(cmd_data_json) + '] result is: '
                 + resp.sprintf())
 
@@ -188,6 +188,11 @@ class PortGetCommand(NetAppCommand):
         npi.child_add_string("operational-speed","<operational-speed>")
         npi.child_add_string("operational-duplex","<operational-duplex>")
         npi.child_add_string("operational-flowcontrol","<operational-flowcontrol>")
+        npi.child_add_string("port-type","<port-type>")
+        npi.child_add_string("vlan-id","<vlan-id>")
+        npi.child_add_string("vlan-node","<vlan-node>")
+        npi.child_add_string("vlan-port","<vlan-port>")
+
         des_attr.child_add(npi)
         call.child_add(des_attr)
         
@@ -200,11 +205,11 @@ class PortGetCommand(NetAppCommand):
 
         #LOGGER.debug(resp.sprintf())
 
-        port_cnt = resp.child_get_int('num-records')
-        if not port_cnt or port_cnt > 1:
-            # either None or 0 evaluates to False
+        port_cnt = self._GET_INT(resp, 'num-records')
+        if port_cnt != 1:
+            # too many ports received for query
             return self._CREATE_FAIL_RESPONSE(
-                'no ports or too many found for query: ['
+                'too many ports found for query: ['
                 + str(cmd_data_json) + '] result is: '
                 + resp.sprintf())
 
@@ -239,7 +244,13 @@ class PortGetCommand(NetAppCommand):
             "auto": self._GET_STRING(port_info, "is-operational-auto-negotiate"),
             "speed": self._GET_STRING(port_info, "operational-speed"),
             "duplex": self._GET_STRING(port_info, "operational-duplex"),
-            "flow": self._GET_STRING(port_info, "operational-flowcontrol")
+            "flow": self._GET_STRING(port_info, "operational-flowcontrol"),
+
+            "type": self._GET_STRING(port_info, "port-type"),
+
+	        "vlan_id": self._GET_STRING(port_info, "vlan-id"),
+	        "vlan_node": self._GET_STRING(port_info, "vlan-node"),
+	        "vlan_port": self._GET_STRING(port_info, "vlan-port")
         }
 
         return {

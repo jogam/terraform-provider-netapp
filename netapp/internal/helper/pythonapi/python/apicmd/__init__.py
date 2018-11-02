@@ -103,7 +103,6 @@ class NetAppCommand(object):
 
         return values
         
-
     @staticmethod
     def _CREATE_EMPTY_RESPONSE(success, msg):
         return { 
@@ -122,6 +121,16 @@ class NetAppCommand(object):
             err_resp = NetAppCommand._CREATE_FAIL_RESPONSE(
                 '[' + cmd_name + '] returned: '
                 + response.sprintf())
+
+        port_cnt = NetAppCommand._GET_INT(response, 'num-records')
+        if port_cnt == 0:
+            # get-iter query with no results, create Non-Exist
+            err_resp = { 
+                'success': True,
+                'errmsg': "", 
+                'data': { 
+                    "non_exist": True
+                }}
 
         return response, err_resp
 

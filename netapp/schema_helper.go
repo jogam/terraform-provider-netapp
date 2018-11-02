@@ -17,3 +17,12 @@ func stringArrayToInterfaceArray(array []string) []interface{} {
 
 	return arr
 }
+
+func interfaceArrayToStringArray(array []interface{}) []string {
+	var arr []string
+	for _, v := range array {
+		arr = append(arr, v.(string))
+	}
+
+	return arr
+}

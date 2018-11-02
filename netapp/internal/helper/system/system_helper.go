@@ -36,8 +36,9 @@ type NodeGetRequest struct {
 	UUID string `json:"uuid,omitempty"`
 }
 
-// NodeGetResponse contains node information for Terraform
-type NodeGetResponse struct {
+// NodeInfo contains node information for Terraform
+type NodeInfo struct {
+	pythonapi.ResourceInfo
 	Name    string `json:"name"`
 	Serial  string `json:"serial"`
 	ID      string `json:"id"`
@@ -48,22 +49,22 @@ type NodeGetResponse struct {
 }
 
 // NodeGetByName to find node for a given name
-func NodeGetByName(client *pythonapi.NetAppAPI, name string) (*NodeGetResponse, error) {
+func NodeGetByName(client *pythonapi.NetAppAPI, name string) (*NodeInfo, error) {
 	request := &NodeGetRequest{
 		Name: name, UUID: "",
 	}
-	resp := NodeGetResponse{}
+	resp := NodeInfo{}
 	err := pythonapi.MakeAPICall(client, nodeGetCmd, request, &resp)
 
 	return &resp, err
 }
 
 // NodeGetByUUID to retrieve NetApp node data for UUID / Terraform resource ID
-func NodeGetByUUID(client *pythonapi.NetAppAPI, uuid string) (*NodeGetResponse, error) {
+func NodeGetByUUID(client *pythonapi.NetAppAPI, uuid string) (*NodeInfo, error) {
 	request := &NodeGetRequest{
 		Name: "", UUID: uuid,
 	}
-	resp := NodeGetResponse{}
+	resp := NodeInfo{}
 	err := pythonapi.MakeAPICall(client, nodeGetCmd, request, &resp)
 
 	return &resp, err
@@ -79,6 +80,7 @@ type PortGetRequest struct {
 type PortInfo struct {
 	// all parameters as strings to overcome bool/int omitempty behaviour
 	PortGetRequest
+	pythonapi.ResourceInfo
 
 	AutoRevertDelay string `json:"auto_rev_delay"` // <autorevert-delay>
 	IgnoreHealth    string `json:"ignr_health"`    // <ignore-health-status>
@@ -102,12 +104,13 @@ type PortInfo struct {
 	Duplex          string `json:"duplex"`           // <operational-duplex>
 	Flow            string `json:"flow"`             // <operational-flowcontrol>
 
-	// <port-type></port-type>
-	// <remote-device-id></remote-device-id>
+	Type string `json:"type"` // <port-type></port-type>
 
-	// <vlan-id></vlan-id>
-	// <vlan-node></vlan-node>
-	// <vlan-port></vlan-port>
+	VlanID   string `json:"vlan_id,omitempty"`   // <vlan-id></vlan-id>
+	VlanNode string `json:"vlan_node,omitempty"` // <vlan-node></vlan-node>
+	VlanPort string `json:"vlan_port,omitempty"` // <vlan-port></vlan-port>
+
+	// <remote-device-id></remote-device-id>
 }
 
 func PortGetByNames(

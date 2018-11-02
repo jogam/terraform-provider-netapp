@@ -2,7 +2,6 @@ package netapp
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/hashicorp/terraform/helper/schema"
 	netappnw "github.com/jogam/terraform-provider-netapp/netapp/internal/helper/network"
@@ -89,7 +88,10 @@ func resourceNetAppIPSpaceRead(d *schema.ResourceData, meta interface{}) error {
 
 	ipSpaceInfo, err := netappnw.IPSpaceGetByUUID(client, d.Id())
 	if err != nil {
-		log.Printf("[WARN] no IPSpace found for [%s], got: %s", d.Id(), err)
+		return fmt.Errorf("IPSpace [%s] read error, got: %s", d.Id(), err)
+	}
+
+	if ipSpaceInfo.NonExist {
 		d.SetId("")
 		return nil
 	}

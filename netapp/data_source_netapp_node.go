@@ -52,31 +52,36 @@ func dataSourceNetAppNode() *schema.Resource {
 func dataSourceNetAppNodeRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*NetAppClient).api
 	nodeName := d.Get("name").(string)
-	resp, err := netappsys.NodeGetByName(client, nodeName)
+	nodeInfo, err := netappsys.NodeGetByName(client, nodeName)
 	if err != nil {
 		return err
 	}
 
-	if err = d.Set("name", resp.Name); err != nil {
+	if nodeInfo.NonExist {
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", nodeInfo.Name); err != nil {
 		return err
 	}
-	if err = d.Set("serial_number", resp.Serial); err != nil {
+	if err = d.Set("serial_number", nodeInfo.Serial); err != nil {
 		return err
 	}
-	if err = d.Set("system_id", resp.ID); err != nil {
+	if err = d.Set("system_id", nodeInfo.ID); err != nil {
 		return err
 	}
-	if err = d.Set("version", resp.Version); err != nil {
+	if err = d.Set("version", nodeInfo.Version); err != nil {
 		return err
 	}
-	if err = d.Set("healthy", resp.Healty); err != nil {
+	if err = d.Set("healthy", nodeInfo.Healty); err != nil {
 		return err
 	}
-	if err = d.Set("uptime", resp.Uptime); err != nil {
+	if err = d.Set("uptime", nodeInfo.Uptime); err != nil {
 		return err
 	}
 
-	d.SetId(resp.UUID)
+	d.SetId(nodeInfo.UUID)
 
 	return nil
 }

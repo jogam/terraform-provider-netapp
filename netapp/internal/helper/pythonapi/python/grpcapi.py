@@ -33,7 +33,7 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 # configure logging before command modules import, otherwise logging fails
 logging.basicConfig(
     filename='python_api.log',
-    level=logging.INFO,
+    level=logging.DEBUG,
     format=(
         '[%(asctime)s %(levelname)s][' + str(os.getpid()) 
         + '] @{%(name)s:%(lineno)d} - %(message)s')

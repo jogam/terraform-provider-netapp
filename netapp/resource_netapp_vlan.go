@@ -2,7 +2,6 @@ package netapp
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -161,11 +160,13 @@ func resourceNetAppVlanRead(d *schema.ResourceData, meta interface{}) error {
 		d.Set("vlan_id", vlanID)
 	}
 
-	vgResp, err := netappnw.VlanGet(client, req)
+	vlanInfo, err := netappnw.VlanGet(client, req)
 	if err != nil {
-		log.Printf(
-			"vlan ID [%v] on port [%s] read, got: %s",
+		return fmt.Errorf("vlan ID [%v] on port [%s] read, got: %s",
 			vlanID, parentID, err)
+	}
+
+	if vlanInfo.NonExist {
 		d.SetId("")
 		return nil
 	}
@@ -173,7 +174,7 @@ func resourceNetAppVlanRead(d *schema.ResourceData, meta interface{}) error {
 	if parentID == "" {
 		// we are importing, get parent ID
 		pInfo, err := netappsys.PortGetByNames(
-			client, vgResp.NodeName, vgResp.ParentName)
+			client, vlanInfo.NodeName, vlanInfo.ParentName)
 		if err != nil {
 			return fmt.Errorf(
 				"could not get port info for parent port during vlan [%s] import, got: %s",
@@ -186,12 +187,12 @@ func resourceNetAppVlanRead(d *schema.ResourceData, meta interface{}) error {
 		d.Set("parent_id", parentID)
 	}
 
-	d.Set("parent_name", vgResp.ParentName)
-	d.Set("node_name", vgResp.NodeName)
-	d.Set("interface_name", vgResp.Name)
-	d.Set("net_qualified_name", createNetQualifiedName(vgResp))
+	d.Set("parent_name", vlanInfo.ParentName)
+	d.Set("node_name", vlanInfo.NodeName)
+	d.Set("interface_name", vlanInfo.Name)
+	d.Set("net_qualified_name", createNetQualifiedName(vlanInfo))
 
-	d.SetId(createVlanID(vgResp))
+	d.SetId(createVlanID(vlanInfo))
 
 	return nil
 }

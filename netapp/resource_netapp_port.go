@@ -289,19 +289,24 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	resp, err := netappsys.PortGetByNames(client, nodeInfo.Name, portName)
+	pInfo, err := netappsys.PortGetByNames(client, nodeInfo.Name, portName)
 	if err != nil {
 		return err
 	}
 
+	if pInfo.NonExist {
+		d.SetId("")
+		return nil
+	}
+
 	// write back admin parameters if they are set in resource data
 	for key, param := range map[string]ParamDefinition{
-		"admin_up":         ParamDefinition{&resp.AdminUp, reflect.Bool},
-		"admin_mtu":        ParamDefinition{&resp.AdminMtu, reflect.Int},
-		"autorevert_delay": ParamDefinition{&resp.AutoRevertDelay, reflect.Int},
-		"ignore_health":    ParamDefinition{&resp.IgnoreHealth, reflect.Bool},
-		"ipspace":          ParamDefinition{&resp.IPSpace, reflect.String},
-		"role":             ParamDefinition{&resp.Role, reflect.String}} {
+		"admin_up":         ParamDefinition{&pInfo.AdminUp, reflect.Bool},
+		"admin_mtu":        ParamDefinition{&pInfo.AdminMtu, reflect.Int},
+		"autorevert_delay": ParamDefinition{&pInfo.AutoRevertDelay, reflect.Int},
+		"ignore_health":    ParamDefinition{&pInfo.IgnoreHealth, reflect.Bool},
+		"ipspace":          ParamDefinition{&pInfo.IPSpace, reflect.String},
+		"role":             ParamDefinition{&pInfo.Role, reflect.String}} {
 		if err = writeToSchemaIfInCfg(d, key, param); err != nil {
 			return err
 		}
@@ -312,7 +317,7 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 		// user cares about auto-negotiation
 		cfgAdminAuto := cfgAdmin.(bool)
 
-		runAdminAuto, err := strconv.ParseBool(resp.AdminAuto)
+		runAdminAuto, err := strconv.ParseBool(pInfo.AdminAuto)
 		if err != nil {
 			return fmt.Errorf("auto-negotiation configured but not reported")
 		}
@@ -325,9 +330,9 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 			// autonegotiation true in neither requested nor status
 			// read back the admin settings from response
 			for key, param := range map[string]ParamDefinition{
-				"admin_speed":  ParamDefinition{&resp.AdminSpeed, reflect.String},
-				"admin_duplex": ParamDefinition{&resp.AdminDuplex, reflect.String},
-				"admin_flow":   ParamDefinition{&resp.AdminFlow, reflect.String}} {
+				"admin_speed":  ParamDefinition{&pInfo.AdminSpeed, reflect.String},
+				"admin_duplex": ParamDefinition{&pInfo.AdminDuplex, reflect.String},
+				"admin_flow":   ParamDefinition{&pInfo.AdminFlow, reflect.String}} {
 				if err = writeToSchema(d, key, param); err != nil {
 					return err
 				}
@@ -337,25 +342,25 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 
 	// status write back - computed/info params, e.g. possibly not specified by user
 	for key, param := range map[string]ParamDefinition{
-		"status":                  ParamDefinition{&resp.Status, reflect.String},
-		"health":                  ParamDefinition{&resp.Health, reflect.String},
-		"mac_address":             ParamDefinition{&resp.Mac, reflect.String},
-		"broadcast_domain":        ParamDefinition{&resp.BroadCastDomain, reflect.String},
-		"status_ipspace":          ParamDefinition{&resp.IPSpace, reflect.String},
-		"status_mtu":              ParamDefinition{&resp.Mtu, reflect.Int},
-		"status_auto":             ParamDefinition{&resp.Auto, reflect.Bool},
-		"status_speed":            ParamDefinition{&resp.Speed, reflect.String},
-		"status_duplex":           ParamDefinition{&resp.Duplex, reflect.String},
-		"status_flow":             ParamDefinition{&resp.Flow, reflect.String},
-		"status_autorevert_delay": ParamDefinition{&resp.AutoRevertDelay, reflect.Int},
-		"status_ignore_health":    ParamDefinition{&resp.IgnoreHealth, reflect.Bool},
-		"status_role":             ParamDefinition{&resp.Role, reflect.String}} {
+		"status":                  ParamDefinition{&pInfo.Status, reflect.String},
+		"health":                  ParamDefinition{&pInfo.Health, reflect.String},
+		"mac_address":             ParamDefinition{&pInfo.Mac, reflect.String},
+		"broadcast_domain":        ParamDefinition{&pInfo.BroadCastDomain, reflect.String},
+		"status_ipspace":          ParamDefinition{&pInfo.IPSpace, reflect.String},
+		"status_mtu":              ParamDefinition{&pInfo.Mtu, reflect.Int},
+		"status_auto":             ParamDefinition{&pInfo.Auto, reflect.Bool},
+		"status_speed":            ParamDefinition{&pInfo.Speed, reflect.String},
+		"status_duplex":           ParamDefinition{&pInfo.Duplex, reflect.String},
+		"status_flow":             ParamDefinition{&pInfo.Flow, reflect.String},
+		"status_autorevert_delay": ParamDefinition{&pInfo.AutoRevertDelay, reflect.Int},
+		"status_ignore_health":    ParamDefinition{&pInfo.IgnoreHealth, reflect.Bool},
+		"status_role":             ParamDefinition{&pInfo.Role, reflect.String}} {
 		if err = writeToSchema(d, key, param); err != nil {
 			return err
 		}
 	}
 
-	d.SetId(createPortID(resp))
+	d.SetId(createPortID(pInfo))
 
 	return nil
 }

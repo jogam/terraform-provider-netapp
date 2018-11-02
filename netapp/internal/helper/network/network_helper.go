@@ -1,6 +1,9 @@
 package network
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
 )
 
@@ -32,6 +35,7 @@ func (req VlanRequest) GetVlanID() string {
 
 type VlanInfo struct {
 	VlanRequest
+	pythonapi.ResourceInfo
 	Name string `json:"name,omitempty"` // <interface-name>
 }
 
@@ -65,6 +69,7 @@ type IPSpaceRequest struct {
 }
 
 type IPSpaceInfo struct {
+	pythonapi.ResourceInfo
 	Name             string   `json:"name"`       // <ipspace>
 	UUID             string   `json:"uuid"`       // <uuid>
 	BroadCastDomains []string `json:"bc_domains"` // <broadcast-domains>
@@ -74,6 +79,16 @@ type IPSpaceInfo struct {
 
 func IPSpaceGetByUUID(client *pythonapi.NetAppAPI, uuid string) (*IPSpaceInfo, error) {
 	req := &IPSpaceRequest{UUID: uuid}
+	resp := &IPSpaceInfo{}
+	err := pythonapi.MakeAPICall(client, ipspaceGetCmd, req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func IPSpaceGetByName(client *pythonapi.NetAppAPI, name string) (*IPSpaceInfo, error) {
+	req := &IPSpaceRequest{Name: name}
 	resp := &IPSpaceInfo{}
 	err := pythonapi.MakeAPICall(client, ipspaceGetCmd, req, resp)
 	if err != nil {
@@ -109,4 +124,151 @@ func IPSpaceDelete(client *pythonapi.NetAppAPI, name string) error {
 	req := &IPSpaceRequest{Name: name}
 	resp := &pythonapi.EmptyResponse{}
 	return pythonapi.MakeAPICall(client, ipspaceDeleteCmd, req, resp)
+}
+
+type BcDomainRequest struct {
+	Name       string   `json:"name,omitempty"`
+	NewName    string   `json:"new_name,omitempty"`
+	Mtu        string   `json:"mtu,omitempty"`
+	IPSpace    string   `json:"ipspace,omitempty"`
+	Ports      []string `json:"ports,omitempty"`
+	StatusOnly string   `json:"statusonly,omitempty"`
+}
+
+type BcDomainPortInfo struct {
+	Name         string `json:"name"`          // <port>
+	UpdateStatus string `json:"update_status"` // <port-update-status>
+	StatusDetail string `json:"status_detail"` // <port-update-status-detail>
+}
+
+type BcDomainInfo struct {
+	pythonapi.ResourceInfo
+	Name             string             `json:"name"`          // <broadcast-domain>
+	FailoverGroups   []string           `json:"failovergrps"`  // <failover-groups>
+	IPSpace          string             `json:"ipspace"`       // <ipspace>
+	Mtu              string             `json:"mtu"`           // <mtu>
+	PortUpdateStatus string             `json:"update_status"` // <port-update-status-combined>
+	Ports            []BcDomainPortInfo `json:"ports"`         // <ports>
+	SubnetNames      []string           `json:"subnets"`       // <subnet-names>
+}
+
+const bcDomainGetCmd = "NW.BRCDOM.GET"
+
+func BcDomainGet(client *pythonapi.NetAppAPI, name string) (*BcDomainInfo, error) {
+	req := &BcDomainRequest{Name: name}
+	resp := &BcDomainInfo{}
+	err := pythonapi.MakeAPICall(client, bcDomainGetCmd, req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+const bcDomainStatusCmd = "NW.BRCDOM.STATUS"
+
+func BcDomainStatus(client *pythonapi.NetAppAPI, name string) (*BcDomainInfo, error) {
+	req := &BcDomainRequest{Name: name, StatusOnly: "set"}
+	resp := &BcDomainInfo{}
+	err := pythonapi.MakeAPICall(client, bcDomainStatusCmd, req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func BcDomainWaitForInProgressDone(client *pythonapi.NetAppAPI, name string) (string, error) {
+	var bcInfo *BcDomainInfo
+	var err error
+	for true {
+		bcInfo, err = BcDomainStatus(client, name)
+		if err != nil {
+			return "", err
+		}
+
+		if bcInfo.PortUpdateStatus != "in_progress" {
+			break
+		}
+	}
+
+	return bcInfo.PortUpdateStatus, nil
+}
+
+const bcDomainCreateCmd = "NW.BRCDOM.CREATE"
+
+func BcDomainCreate(client *pythonapi.NetAppAPI, request *BcDomainRequest) (*BcDomainInfo, error) {
+	resp := &BcDomainInfo{}
+	err := pythonapi.MakeAPICall(client, bcDomainCreateCmd, request, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+const bcDomainRenameCmd = "NW.BRCDOM.RENAME"
+
+func BcDomainRename(client *pythonapi.NetAppAPI, name string, newName string) error {
+	req := &BcDomainRequest{Name: name, NewName: newName}
+	resp := &pythonapi.EmptyResponse{}
+	return pythonapi.MakeAPICall(client, bcDomainRenameCmd, req, resp)
+}
+
+const bcDomainPortAddCmd = "NW.BRCDOM.PORT.ADD"
+const bcDomainPortRemoveCmd = "NW.BRCDOM.PORT.REMOVE"
+
+func BcDomainPortsModify(
+	client *pythonapi.NetAppAPI,
+	name string, portNames []string,
+	add bool, remove bool) (*BcDomainInfo, error) {
+
+	if (add && remove) || (!add && !remove) {
+		return nil, fmt.Errorf(
+			"modify broadcast domain [%s}] ports must either add or remove"+
+				" got [add,remove]: [%v,%v]",
+			name, add, remove)
+	}
+
+	req := &BcDomainRequest{Name: name, Ports: portNames}
+	resp := &BcDomainInfo{}
+	var err error
+	if add {
+		err = pythonapi.MakeAPICall(client, bcDomainPortAddCmd, req, resp)
+	} else {
+		err = pythonapi.MakeAPICall(client, bcDomainPortRemoveCmd, req, resp)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+const bcDomainUpdateCmd = "NW.BRCDOM.UPDATE"
+
+func BcDomainUpdate(
+	client *pythonapi.NetAppAPI,
+	name string, ipspace string, mtu int) (*BcDomainInfo, error) {
+	req := &BcDomainRequest{Name: name, IPSpace: ipspace, Mtu: strconv.Itoa(mtu)}
+	resp := &BcDomainInfo{}
+	err := pythonapi.MakeAPICall(client, bcDomainUpdateCmd, req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+const bcDomainDeleteCmd = "NW.BRCDOM.DELETE"
+
+func BcDomainDelete(
+	client *pythonapi.NetAppAPI,
+	name string, ipspace string) (*BcDomainInfo, error) {
+
+	req := &BcDomainRequest{Name: name, IPSpace: ipspace}
+	resp := &BcDomainInfo{}
+	err := pythonapi.MakeAPICall(client, bcDomainDeleteCmd, req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
