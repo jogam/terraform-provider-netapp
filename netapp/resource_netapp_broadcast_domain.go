@@ -19,17 +19,22 @@ func resourceNetAppBroadcastDomain() *schema.Resource {
 				Required:    true,
 			},
 
-			"mtu": &schema.Schema{
-				Type:        schema.TypeInt,
-				Description: "MTU to be applied to all ports belonging to this Broadcast Domain.",
-				Optional:    true,
-				Default:     1500,
-			},
-
 			"ipspace": &schema.Schema{
 				Type:        schema.TypeString,
 				Description: "The managed object ID of the IPSpace this Broadcast Domain belongs to (netapp default: Default).",
 				Optional:    true,
+				ForceNew:    true,
+			},
+
+			"mtu": &schema.Schema{
+				Type: schema.TypeInt,
+				Description: "MTU to be applied to all ports belonging to this Broadcast Domain." +
+					" (NOTE: underlying physical interfaces must be configured to at least" +
+					" same MTU value via admin_mtu! - default: 1500)",
+				// DOCU: during UP ensure that PHYS-INT MTU was increased in previous apply
+				//		 during DOWN on PHYS-INT, ensure that BroadCast domain is first below new value
+				Optional: true,
+				Default:  1500,
 			},
 
 			"ports": &schema.Schema{
@@ -226,10 +231,19 @@ func resourceNetAppBroadcastDomainUpdate(d *schema.ResourceData, meta interface{
 	// Enable partial state mode
 	d.Partial(true)
 
+	// need ipspace for part updates, get here
+	ipspaceUUIDnew, ipspaceUUIDold := d.GetChange("ipspace")
+	ipspaceUUID := ipspaceUUIDold.(string)
+	ipSpaceInfo, err := netappnw.IPSpaceGetByUUID(client, ipspaceUUID)
+	if err != nil {
+		return fmt.Errorf("no IPSpace [%s] found, got: %s", ipspaceUUID, err)
+	}
+
 	// update broadcast domain name if changed
 	if d.HasChange("name") {
 		name, newName := d.GetChange("name")
-		err := netappnw.BcDomainRename(client, name.(string), newName.(string))
+		err := netappnw.BcDomainRename(
+			client, name.(string), ipSpaceInfo.Name, newName.(string))
 		if err != nil {
 			return err
 		}
@@ -270,21 +284,25 @@ func resourceNetAppBroadcastDomainUpdate(d *schema.ResourceData, meta interface{
 		}
 
 		// remove ports from broadcast domain
-		bcInfo, err := netappnw.BcDomainPortsModify(client, name, rmPortNames, false, true)
-		if err != nil {
-			return fmt.Errorf("port remove error: %s", err)
-		}
-
-		portStatus := bcInfo.PortUpdateStatus
-		if portStatus == "in_progress" {
-			portStatus, err = netappnw.BcDomainWaitForInProgressDone(client, name)
+		if len(rmPortNames) > 0 {
+			bcInfo, err := netappnw.BcDomainPortsModify(
+				client, name, ipSpaceInfo.Name,
+				rmPortNames, false, true)
 			if err != nil {
-				return fmt.Errorf("remove port wait finished caused: %s", err)
+				return fmt.Errorf("port remove error: %s", err)
 			}
-		}
 
-		if portStatus == "error" {
-			return fmt.Errorf("remove port failed, use refresh to get details")
+			portStatus := bcInfo.PortUpdateStatus
+			if portStatus == "in_progress" {
+				portStatus, err = netappnw.BcDomainWaitForInProgressDone(client, name)
+				if err != nil {
+					return fmt.Errorf("remove port wait finished caused: %s", err)
+				}
+			}
+
+			if portStatus == "error" {
+				return fmt.Errorf("remove port failed, use refresh to get details")
+			}
 		}
 
 		// find added port names
@@ -309,22 +327,26 @@ func resourceNetAppBroadcastDomainUpdate(d *schema.ResourceData, meta interface{
 			}
 		}
 
-		// add ports to broadcast domain
-		bcInfo, err = netappnw.BcDomainPortsModify(client, name, addPortNames, true, false)
-		if err != nil {
-			return fmt.Errorf("port add error: %s", err)
-		}
-
-		portStatus = bcInfo.PortUpdateStatus
-		if portStatus == "in_progress" {
-			portStatus, err = netappnw.BcDomainWaitForInProgressDone(client, name)
+		if len(addPortNames) > 0 {
+			// add ports to broadcast domain
+			bcInfo, err := netappnw.BcDomainPortsModify(
+				client, name, ipSpaceInfo.Name,
+				addPortNames, true, false)
 			if err != nil {
-				return fmt.Errorf("add port wait finished caused: %s", err)
+				return fmt.Errorf("port add error: %s", err)
 			}
-		}
 
-		if portStatus == "error" {
-			return fmt.Errorf("add port failed, use refresh to get details")
+			portStatus := bcInfo.PortUpdateStatus
+			if portStatus == "in_progress" {
+				portStatus, err = netappnw.BcDomainWaitForInProgressDone(client, name)
+				if err != nil {
+					return fmt.Errorf("add port wait finished caused: %s", err)
+				}
+			}
+
+			if portStatus == "error" {
+				return fmt.Errorf("add port failed, use refresh to get details")
+			}
 		}
 
 		// done ports update, indicate in partial state
@@ -333,10 +355,11 @@ func resourceNetAppBroadcastDomainUpdate(d *schema.ResourceData, meta interface{
 
 	// update rest of parameters if changes present
 	if d.HasChange("mtu") || d.HasChange("ipspace") {
-		ipspace := d.Get("ipspace").(string)
-		ipSpaceInfo, err := netappnw.IPSpaceGetByUUID(client, ipspace)
+		// get the new IPSpace UUID IpSpaceInfo for the update
+		ipspaceUUID := ipspaceUUIDnew.(string)
+		ipSpaceInfo, err := netappnw.IPSpaceGetByUUID(client, ipspaceUUID)
 		if err != nil {
-			return fmt.Errorf("no IPSpace [%s] found, got: %s", ipspace, err)
+			return fmt.Errorf("no IPSpace [%s] found, got: %s", ipspaceUUID, err)
 		}
 
 		bcInfo, err := netappnw.BcDomainUpdate(

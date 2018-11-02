@@ -585,3 +585,161 @@ class BcDomainDeleteCommand(NetAppCommand):
 
         return {
             'success' : True, 'errmsg': '', 'data': dd}
+
+class BcDomainRenameCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.RENAME"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json or
+                "new_name" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "broadcast domain rename commands must"
+                + " have name, new name and ipspace defined"
+                + ", got: " + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        new_name = cmd_data_json["new_name"]
+        cmd = "net-port-broadcast-domain-rename"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("broadcast-domain", name)
+        call.child_add_string("ipspace", ipspace)
+        call.child_add_string("new-name", new_name)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + " [" + ipspace + "] --> " + new_name)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
+class BcDomainPortModifyCommand(NetAppCommand):
+
+    @classmethod
+    def _get_cmd_type(cls):
+        raise NotImplementedError('must be implemented by subclass')
+
+    @classmethod
+    def get_name(cls):
+        # need to implement, otherwise find commands fails!
+        return "NW.BRCDOM.port.modify"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json or
+                "ports" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "broadcast domain port "
+                + self._get_cmd_type() + " commands must"
+                + " have name, ipspace and ports defined"
+                + ", got: " + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        ports = cmd_data_json["ports"]
+        cmd = (
+            "net-port-broadcast-domain-"
+            + self._get_cmd_type() + "-ports")
+
+        call = NaElement(cmd)
+
+        call.child_add_string("broadcast-domain", name)
+        call.child_add_string("ipspace", ipspace)
+
+        ports_el = NaElement("ports")
+
+        for port_name in ports:
+            ports_el.child_add_string(
+                "net-qualified-port-name", port_name)
+
+        call.child_add(ports_el)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + " [" + ipspace+ "]" 
+            + self._get_cmd_type() + str(ports))
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        dd = {
+            "update_status": self._GET_STRING(resp, "port-update-status-combined"),
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class BcDomainPortAddCommand(BcDomainPortModifyCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.PORT.ADD"
+
+    @classmethod
+    def _get_cmd_type(cls):
+        return "add"
+
+class BcDomainPortRemoveCommand(BcDomainPortModifyCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.PORT.REMOVE"
+
+    @classmethod
+    def _get_cmd_type(cls):
+        return "remove"
+
+class BcDomainUpdateCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.BRCDOM.UPDATE"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json or
+                "mtu" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "broadcast domain update commands must"
+                + " have name, ipspace and mtu defined,"
+                + " got: " + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        mtu = cmd_data_json["mtu"]
+        cmd = "net-port-broadcast-domain-modify"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("broadcast-domain", name)
+        call.child_add_string("ipspace", ipspace)
+        call.child_add_string("mtu", mtu)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + " [" + ipspace+ "]")
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        dd = {
+            "update_status": self._GET_STRING(resp, "port-update-status-combined"),
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}

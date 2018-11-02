@@ -37,6 +37,7 @@ func resourceNetAppPort() *schema.Resource {
 				Type:        schema.TypeInt,
 				Description: "Configure MTU for this port (default: 1500).",
 				Optional:    true,
+				Default:     1500,
 			},
 
 			"admin_auto": &schema.Schema{

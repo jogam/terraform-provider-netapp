@@ -207,8 +207,11 @@ func BcDomainCreate(client *pythonapi.NetAppAPI, request *BcDomainRequest) (*BcD
 
 const bcDomainRenameCmd = "NW.BRCDOM.RENAME"
 
-func BcDomainRename(client *pythonapi.NetAppAPI, name string, newName string) error {
-	req := &BcDomainRequest{Name: name, NewName: newName}
+func BcDomainRename(
+	client *pythonapi.NetAppAPI,
+	name string, ipspace string,
+	newName string) error {
+	req := &BcDomainRequest{Name: name, IPSpace: ipspace, NewName: newName}
 	resp := &pythonapi.EmptyResponse{}
 	return pythonapi.MakeAPICall(client, bcDomainRenameCmd, req, resp)
 }
@@ -218,7 +221,8 @@ const bcDomainPortRemoveCmd = "NW.BRCDOM.PORT.REMOVE"
 
 func BcDomainPortsModify(
 	client *pythonapi.NetAppAPI,
-	name string, portNames []string,
+	name string, ipspace string,
+	portNames []string,
 	add bool, remove bool) (*BcDomainInfo, error) {
 
 	if (add && remove) || (!add && !remove) {
@@ -228,7 +232,7 @@ func BcDomainPortsModify(
 			name, add, remove)
 	}
 
-	req := &BcDomainRequest{Name: name, Ports: portNames}
+	req := &BcDomainRequest{Name: name, Ports: portNames, IPSpace: ipspace}
 	resp := &BcDomainInfo{}
 	var err error
 	if add {
