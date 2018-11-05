@@ -151,3 +151,48 @@ func PortModify(
 	err := pythonapi.MakeAPICall(client, portModifyCmd, request, &resp)
 	return err
 }
+
+const aggrGetCmd = "SYS.AGGR.GET"
+
+// AggrGetRequest to get node information from NetApp
+type AggrGetRequest struct {
+	Name  string   `json:"name,omitempty"`
+	UUID  string   `json:"uuid,omitempty"`
+	Nodes []string `json:"nodes,omitempty"`
+}
+
+// AggrInfo contains aggregate information for Terraform
+type AggrInfo struct {
+	pythonapi.ResourceInfo
+	AggrGetRequest
+
+	FlexVolCount    int `json:"flexvol_cnt"`
+	PctUsedCapacity int `json:"pct_used_cap"`
+	PctUsedPhysical int `json:"pct_used_phys"`
+	SizeTotal       int `json:"size_total"`
+	SizeUsed        int `json:"size_used"`
+	SizeAvailable   int `json:"size_avail"`
+	SizeReserved    int `json:"size_reserve"`
+}
+
+// AggrGetByName to find aggregate for given name
+func AggrGetByName(
+	client *pythonapi.NetAppAPI,
+	name string, nodeName string) (*AggrInfo, error) {
+	request := &AggrGetRequest{Name: name, Nodes: []string{nodeName}}
+	resp := AggrInfo{}
+	err := pythonapi.MakeAPICall(client, aggrGetCmd, request, &resp)
+
+	return &resp, err
+}
+
+// AggrGetByUUID to find aggregate for given UUID
+func AggrGetByUUID(
+	client *pythonapi.NetAppAPI,
+	uuid string, nodeName string) (*AggrInfo, error) {
+	request := &AggrGetRequest{UUID: uuid, Nodes: []string{nodeName}}
+	resp := AggrInfo{}
+	err := pythonapi.MakeAPICall(client, aggrGetCmd, request, &resp)
+
+	return &resp, err
+}

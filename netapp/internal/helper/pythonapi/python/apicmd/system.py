@@ -304,3 +304,105 @@ class PortModifyCommand(NetAppCommand):
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
+
+class AggrGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'SYS.AGGR.GET'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json and
+                "uuid" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'get aggr request must have either '
+                + 'name or uuid defined, got: '
+                + str(cmd_data_json))
+
+        cmd = "aggr-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qi_aa = NaElement("aggr-attributes")
+
+        for key in ["name", "uuid"]:
+            if key in cmd_data_json:
+                qi_aa.child_add_string(
+                    "aggregate-" + key, cmd_data_json[key])
+
+        if "nodes" in cmd_data_json:
+            qi_nodes = NaElement("nodes")
+
+            for node_name in cmd_data_json["nodes"]:
+                qi_nodes.child_add_string("node-name", node_name)
+
+            qi_aa.child_add(qi_nodes)
+
+        qe.child_add(qi_aa)
+        call.child_add(qe)
+
+        des_attr = NaElement("desired-attributes")
+
+        agg_attr = NaElement("aggr-attributes")
+        agg_attr.child_add_string("aggregate-name","<aggregate-name>")
+        agg_attr.child_add_string("aggregate-uuid","<aggregate-uuid>")
+
+        agg_spc = NaElement("aggr-space-attributes")
+        agg_spc.child_add_string("percent-used-capacity","<percent-used-capacity>")
+        agg_spc.child_add_string("physical-used-percent","<physical-used-percent>")
+        agg_spc.child_add_string("size-available","<size-available>")
+        agg_spc.child_add_string("size-total","<size-total>")
+        agg_spc.child_add_string("size-used","<size-used>")
+        agg_spc.child_add_string("total-reserved-space","<total-reserved-space>")
+        agg_attr.child_add(agg_spc)
+
+        agg_vcnt = NaElement("aggr-volume-count-attributes")
+        agg_vcnt.child_add_string("flexvol-count","<flexvol-count>")
+        agg_attr.child_add(agg_vcnt)
+
+        des_attr.child_add(agg_attr)
+        call.child_add(des_attr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": <-- "
+            + str(cmd_data_json))
+        if err_resp:
+            return err_resp
+
+        agg_cnt = self._GET_INT(resp, 'num-records')
+        if agg_cnt != 1:
+            # too many aggregates found for query
+            return self._CREATE_FAIL_RESPONSE(
+                'too many aggregates found for'
+                + ' query: [' + str(cmd_data_json) 
+                + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no aggregate info data found in: '
+                + resp.sprintf())
+
+        agg_info = resp.child_get("attributes-list").children_get()[0]
+        dd = {
+            "name": self._GET_STRING(agg_info, "aggregate-name"),
+            "uuid": self._GET_STRING(agg_info, "aggregate-uuid"),
+        }
+
+        agg_si = agg_info.child_get("aggr-space-attributes")
+        if agg_si:
+            dd["pct_used_cap"] = self._GET_INT(agg_si, "percent-used-capacity")
+            dd["pct_used_phys"] = self._GET_INT(agg_si, "physical-used-percent")
+            dd["size_avail"] = self._GET_INT(agg_si, "size-available")
+            dd["size_total"] = self._GET_INT(agg_si, "size-total")
+            dd["size_used"] = self._GET_INT(agg_si, "size-used")
+            dd["size_reserve"] = self._GET_INT(agg_si, "total-reserved-space")
+
+        add_vco = agg_info.child_get("aggr-volume-count-attributes")
+        if add_vco:
+            dd["flexvol_cnt"] = self._GET_INT(add_vco, "flexvol-count")
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}

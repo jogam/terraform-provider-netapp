@@ -88,6 +88,7 @@ func Provider() terraform.ResourceProvider {
 
 		DataSourcesMap: map[string]*schema.Resource{
 			"netapp_node": dataSourceNetAppNode(),
+			"netapp_aggr": dataSourceNetAppAggr(),
 		},
 
 		ConfigureFunc: configureProvider,
