@@ -398,7 +398,7 @@ class BcDomainGetCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         bcd_cnt = self._GET_INT(resp, 'num-records')
         if bcd_cnt != 1:
@@ -473,7 +473,7 @@ class BcDomainStatusCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         bcd_cnt = self._GET_INT(resp, 'num-records')
         if bcd_cnt != 1:
@@ -538,7 +538,7 @@ class BcDomainCreateCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         dd = {
             "update_status": self._GET_STRING(resp, "port-update-status-combined"),
@@ -577,7 +577,7 @@ class BcDomainDeleteCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         dd = {
             "update_status": self._GET_STRING(resp, "port-update-status-combined"),
@@ -619,7 +619,7 @@ class BcDomainRenameCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
@@ -673,7 +673,7 @@ class BcDomainPortModifyCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         dd = {
             "update_status": self._GET_STRING(resp, "port-update-status-combined"),
@@ -735,7 +735,7 @@ class BcDomainUpdateCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        # LOGGER.debug(resp.sprintf())
 
         dd = {
             "update_status": self._GET_STRING(resp, "port-update-status-combined"),
@@ -743,3 +743,357 @@ class BcDomainUpdateCommand(NetAppCommand):
 
         return {
             'success' : True, 'errmsg': '', 'data': dd}
+
+class SubnetDeleteCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'NW.SUBNET.DELETE'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'delete subnet must have name'
+                + ' and ipspace defined, got: '
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        cmd = "net-subnet-destroy"
+
+        call = NaElement(cmd)
+        
+        call.child_add_string("subnet-name", name)
+        call.child_add_string("ipspace", ipspace)
+
+        _, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + ' [' + ipspace+ ']')
+        if err_resp:
+            return err_resp
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
+class SubnetGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return "NW.SUBNET.GET"
+
+    def execute(self, server, cmd_data_json):
+        if (   
+                "name" not in cmd_data_json or
+                "bc_domain" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "subnet get commands must"
+                + " have name and broadcast domain"
+                + " defined, got: "
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        bcdom = cmd_data_json["bc_domain"]
+        cmd = "net-subnet-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qi_si = NaElement("net-subnet-info")
+        qi_si.child_add_string("broadcast-domain", bcdom)
+        qi_si.child_add_string("subnet-name", name)
+        qe.child_add(qi_si)
+
+        call.child_add(qe)
+
+        dattr = NaElement("desired-attributes")
+
+        si = NaElement("net-subnet-info")
+        
+        si.child_add_string("subnet-name","<subnet-name>")
+        si.child_add_string("broadcast-domain","<broadcast-domain>")
+        si.child_add_string("ipspace","<ipspace>")
+        si.child_add_string("subnet","<subnet>")
+        si.child_add_string("gateway","<gateway>")
+
+        iprs = NaElement("ip-ranges")
+        iprs.child_add_string("ip-range","<ip-range>")
+        si.child_add(iprs)
+        
+        si.child_add_string("total-count","<total-count>")
+        si.child_add_string("used-count","<used-count>")
+        si.child_add_string("available-count","<available-count>")
+
+        dattr.child_add(si)
+
+        call.child_add(dattr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        # LOGGER.debug(resp.sprintf())
+
+        si_cnt = self._GET_INT(resp, 'num-records')
+        if si_cnt != 1:
+            # too many subnets found for query
+            return self._CREATE_FAIL_RESPONSE(
+                'too many subnets found for'
+                + ' query: [' + str(cmd_data_json) 
+                + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no subnet info data found in: '
+                + resp.sprintf())
+
+        si_info = resp.child_get("attributes-list").children_get()[0]
+        dd = {
+            "bc_domain": self._GET_STRING(si_info, "broadcast-domain"),
+            "gateway": self._GET_STRING(si_info, "gateway"),
+            "ipspace": self._GET_STRING(si_info, "ipspace"),
+            "subnet":  self._GET_STRING(si_info, "subnet"),
+            "name": self._GET_STRING(si_info, "subnet-name"),
+            "ip_count": self._GET_INT(si_info, "total-count"),
+            "ip_used": self._GET_INT(si_info, "used-count"),
+            "ip_avail": self._GET_INT(si_info, "available-count"),
+            "ip_ranges": self._GET_CONTENT_LIST(si_info, "ip-ranges")
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class SubnetCreateCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return "NW.SUBNET.CREATE"
+
+    def execute(self, server, cmd_data_json):
+        if (   
+                "name" not in cmd_data_json or
+                "bc_domain" not in cmd_data_json or 
+                "ipspace" not in cmd_data_json or 
+                "subnet" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "subnet create commands must"
+                + " have name, broadcast domain, ipspace"
+                + " and subnet defined, got: "
+                + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        bcdom = cmd_data_json["bc_domain"]
+        ipspace = cmd_data_json["ipspace"]
+        subnet = cmd_data_json["subnet"]
+        cmd = "net-subnet-create"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("subnet-name", name)
+        call.child_add_string("broadcast-domain", bcdom)
+        call.child_add_string("ipspace", ipspace)
+        call.child_add_string("subnet", subnet)
+
+        # make sure that create call returns record!
+        call.child_add_string("return-record", True)
+
+        if "gateway" in cmd_data_json:
+            call.child_add_string("gateway", cmd_data_json["gateway"])
+
+        if "ip_ranges" in cmd_data_json:
+            iprs = NaElement("ip-ranges")
+            for ip_range in cmd_data_json["ip_ranges"]:
+                iprs.child_add_string("ip-range", ip_range)
+        
+            call.child_add(iprs)
+        
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name)
+        if err_resp:
+            return err_resp
+
+        # LOGGER.debug(resp.sprintf())
+
+        if not resp.child_get("result"):
+            # no result data in response
+            return self._CREATE_FAIL_RESPONSE(
+                'no result data for create subnet'
+                + ' with input: [' + str(cmd_data_json) 
+                + '] result is: '
+                + resp.sprintf())
+
+        si_info = resp.child_get("result").child_get("net-subnet-info")
+        dd = {
+            "bc_domain": self._GET_STRING(si_info, "broadcast-domain"),
+            "gateway": self._GET_STRING(si_info, "gateway"),
+            "ipspace": self._GET_STRING(si_info, "ipspace"),
+            "subnet":  self._GET_STRING(si_info, "subnet"),
+            "name": self._GET_STRING(si_info, "subnet-name"),
+            "ip_count": self._GET_INT(si_info, "total-count"),
+            "ip_used": self._GET_INT(si_info, "used-count"),
+            "ip_avail": self._GET_INT(si_info, "available-count"),
+            "ip_ranges": self._GET_CONTENT_LIST(si_info, "ip-ranges")
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+class SubnetRenameCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.SUBNET.RENAME"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json or
+                "new_name" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "subnet rename commands must"
+                + " have name, new name and ipspace defined"
+                + ", got: " + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        new_name = cmd_data_json["new_name"]
+        cmd = "net-subnet-rename"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("subnet-name", name)
+        call.child_add_string("ipspace", ipspace)
+        call.child_add_string("new-name", new_name)
+
+        _, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + " [" + ipspace + "] --> " + new_name)
+        if err_resp:
+            return err_resp
+
+        # LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
+class SubnetIpRangeModifyCommand(NetAppCommand):
+
+    @classmethod
+    def _get_cmd_type(cls):
+        raise NotImplementedError('must be implemented by subclass')
+
+    @classmethod
+    def get_name(cls):
+        # need to implement, otherwise find commands fails!
+        return "NW.SUBNET.IPR.modify"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json or
+                "ip_ranges" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "subnet ip range "
+                + self._get_cmd_type() + " commands must"
+                + " have name, ipspace and ip_ranges defined"
+                + ", got: " + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        iprs = cmd_data_json["ip_ranges"]
+        cmd = (
+            "net-subnet-"
+            + self._get_cmd_type() 
+            + "-ranges")
+
+        call = NaElement(cmd)
+
+        call.child_add_string("subnet-name", name)
+        call.child_add_string("ipspace", ipspace)
+
+        el_iprs = NaElement("ip-ranges")
+
+        for ip_range in iprs:
+            el_iprs.child_add_string(
+                "ip-range", ip_range)
+
+        call.child_add(el_iprs)
+
+        _, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + " [" + ipspace+ "]" 
+            + self._get_cmd_type() + str(iprs))
+        if err_resp:
+            return err_resp
+
+        # LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(True, "")
+
+class SubnetIpRangeAddCommand(SubnetIpRangeModifyCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.SUBNET.IPR.ADD"
+
+    @classmethod
+    def _get_cmd_type(cls):
+        return "add"
+
+class SubnetIpRangeRemoveCommand(SubnetIpRangeModifyCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.SUBNET.IPR.REMOVE"
+
+    @classmethod
+    def _get_cmd_type(cls):
+        return "remove"
+
+class SubnetModifyCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "NW.SUBNET.MODIFY"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "name" not in cmd_data_json or
+                "ipspace" not in cmd_data_json or
+                (
+                    "subnet" not in cmd_data_json and
+                    "gateway" not in cmd_data_json
+                )):
+            return self._CREATE_FAIL_RESPONSE(
+                "subnet modify must"
+                + " have name, ipspace and either"
+                + " gateway or subnet defined"
+                + ", got: " + str(cmd_data_json))
+
+        name = cmd_data_json["name"]
+        ipspace = cmd_data_json["ipspace"]
+        cmd = "net-subnet-modify"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("subnet-name", name)
+        call.child_add_string("ipspace", ipspace)
+
+        if "gateway" in cmd_data_json:
+            call.child_add_string("gateway", cmd_data_json["gateway"])
+
+        if "subnet" in cmd_data_json:
+            call.child_add_string("subnet", cmd_data_json["subnet"])
+
+        _, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + name 
+            + " [" + ipspace + "] <-- " + str(cmd_data_json))
+        if err_resp:
+            return err_resp
+
+        # LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(True, "")

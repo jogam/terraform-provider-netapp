@@ -22,7 +22,7 @@ func resourceNetAppBroadcastDomain() *schema.Resource {
 			"ipspace": &schema.Schema{
 				Type:        schema.TypeString,
 				Description: "The managed object ID of the IPSpace this Broadcast Domain belongs to (netapp default: Default).",
-				Optional:    true,
+				Required:    true,
 				ForceNew:    true,
 			},
 
@@ -207,13 +207,18 @@ func resourceNetAppBroadcastDomainRead(d *schema.ResourceData, meta interface{})
 		if err != nil {
 			return fmt.Errorf("set new port data failed: %s", err)
 		}
+	} else {
+		emptyPorts := make([]interface{}, 0)
+		d.Set("ports", emptyPorts)
 	}
 
+	sort.Strings(bcInfo.FailoverGroups)
 	err = d.Set("failover_groups", stringArrayToInterfaceArray(bcInfo.FailoverGroups))
 	if err != nil {
 		return fmt.Errorf("set new failover group data failed: %s", err)
 	}
 
+	sort.Strings(bcInfo.SubnetNames)
 	err = d.Set("subnet_names", stringArrayToInterfaceArray(bcInfo.SubnetNames))
 	if err != nil {
 		return fmt.Errorf("set new subnet name data failed: %s", err)

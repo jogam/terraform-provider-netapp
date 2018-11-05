@@ -29,7 +29,7 @@ func resourceNetAppPort() *schema.Resource {
 
 			"admin_up": &schema.Schema{
 				Type:        schema.TypeBool,
-				Description: "Change the port status to up if true (default: true)",
+				Description: "Change the port status to up if true.",
 				Optional:    true,
 			},
 

@@ -39,3 +39,40 @@ func getNodePortNameVlanFromVlanID(vlanID string) (string, string, int, error) {
 	}
 	return viParts[0], viParts[1], vID, nil
 }
+
+func createSubnetID(subnetInfo *netappnw.SubnetInfo) string {
+	var builder strings.Builder
+	fmt.Fprintf(
+		&builder, "%s|%s|%s",
+		subnetInfo.BroadCastDomain,
+		subnetInfo.IPSpace,
+		subnetInfo.Name)
+	return builder.String()
+}
+
+func updateSubnetID(subnetID string, newName string) (string, error) {
+	parts := strings.Split(subnetID, "|")
+	if len(parts) != 3 {
+		return "", fmt.Errorf(
+			"could not update subnet ID with new name from ID [%s]", subnetID)
+	}
+
+	var builder strings.Builder
+	fmt.Fprintf(
+		&builder, "%s|%s|%s",
+		parts[0], parts[1], newName)
+	return builder.String(), nil
+}
+
+func subnetRequestFromID(subnetID string) (*netappnw.SubnetRequest, error) {
+	parts := strings.Split(subnetID, "|")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf(
+			"could not create subnet request from ID [%s]", subnetID)
+	}
+
+	return &netappnw.SubnetRequest{
+		Name:            parts[2],
+		BroadCastDomain: parts[0],
+		IPSpace:         parts[1]}, nil
+}

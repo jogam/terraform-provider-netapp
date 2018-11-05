@@ -227,7 +227,7 @@ func BcDomainPortsModify(
 
 	if (add && remove) || (!add && !remove) {
 		return nil, fmt.Errorf(
-			"modify broadcast domain [%s}] ports must either add or remove"+
+			"modify broadcast domain [%s] ports must either add or remove"+
 				" got [add,remove]: [%v,%v]",
 			name, add, remove)
 	}
@@ -275,4 +275,92 @@ func BcDomainDelete(
 		return nil, err
 	}
 	return resp, nil
+}
+
+type SubnetRequest struct {
+	Name            string   `json:"name,omitempty"` // <subnet-name>
+	NewName         string   `json:"new_name,omitempty"`
+	BroadCastDomain string   `json:"bc_domain,omitempty"` // <broadcast-domain>
+	IPSpace         string   `json:"ipspace,omitempty"`   // <ipspace>
+	Subnet          string   `json:"subnet,omitempty"`    // <subnet>
+	Gateway         string   `json:"gateway,omitempty"`   // <gateway>
+	IPRanges        []string `json:"ip_ranges,omitempty"` // <ip-ranges>
+}
+
+type SubnetInfo struct {
+	pythonapi.ResourceInfo
+	SubnetRequest
+
+	IPCount     int `json:"ip_count"` // <used-count>
+	IPUsed      int `json:"ip_used"`  // <total-count>
+	IPAvailable int `json:"ip_avail"` // <available-count>
+}
+
+const subnetGetCmd = "NW.SUBNET.GET"
+
+func SubnetGet(client *pythonapi.NetAppAPI, request *SubnetRequest) (*SubnetInfo, error) {
+	response := &SubnetInfo{}
+	err := pythonapi.MakeAPICall(client, subnetGetCmd, request, response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+const subnetCreateCmd = "NW.SUBNET.CREATE"
+
+func SubnetCreate(client *pythonapi.NetAppAPI, request *SubnetRequest) (*SubnetInfo, error) {
+	response := &SubnetInfo{}
+	err := pythonapi.MakeAPICall(client, subnetCreateCmd, request, response)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+const subnetDeleteCmd = "NW.SUBNET.DELETE"
+
+func SubnetDelete(client *pythonapi.NetAppAPI, request *SubnetRequest) error {
+	response := &pythonapi.EmptyResponse{}
+	return pythonapi.MakeAPICall(client, subnetDeleteCmd, request, response)
+}
+
+const subnetRenameCmd = "NW.SUBNET.RENAME"
+
+func SubnetRename(client *pythonapi.NetAppAPI, request *SubnetRequest) error {
+	response := &pythonapi.EmptyResponse{}
+	return pythonapi.MakeAPICall(client, subnetRenameCmd, request, response)
+}
+
+const subnetIPRangeAddCmd = "NW.SUBNET.IPR.ADD"
+const subnetIPRangeRemoveCmd = "NW.SUBNET.IPR.REMOVE"
+
+func SubnetIpRangeModify(
+	client *pythonapi.NetAppAPI,
+	name string, ipspace string,
+	ipRanges []string,
+	add bool, remove bool) error {
+
+	if (add && remove) || (!add && !remove) {
+		return fmt.Errorf(
+			"modify subnet [%s] IP ranges must either add or remove"+
+				" got [add,remove]: [%v,%v]",
+			name, add, remove)
+	}
+
+	req := &SubnetRequest{Name: name, IPRanges: ipRanges, IPSpace: ipspace}
+	resp := &pythonapi.EmptyResponse{}
+	if add {
+		return pythonapi.MakeAPICall(client, subnetIPRangeAddCmd, req, resp)
+	}
+
+	return pythonapi.MakeAPICall(client, subnetIPRangeRemoveCmd, req, resp)
+}
+
+const subnetModifyCmd = "NW.SUBNET.MODIFY"
+
+func SubnetModify(client *pythonapi.NetAppAPI, request *SubnetRequest) error {
+	response := &pythonapi.EmptyResponse{}
+	return pythonapi.MakeAPICall(client, subnetModifyCmd, request, response)
 }

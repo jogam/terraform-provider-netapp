@@ -2,6 +2,7 @@ package netapp
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -38,7 +39,8 @@ func getNetQualifiedNameFromID(pvid string) (string, error) {
 	// always assume that ID starts with NODE|PORT-NAME
 	fmt.Fprintf(&builder, "%s:%s", parts[0], parts[1])
 
-	if len(strings.Split(parts[2], ":")) == 6 {
+	_, err := net.ParseMAC(parts[2])
+	if err == nil {
 		// its a port: NODE|PORT-NAME|MAC
 		return builder.String(), nil
 	}
