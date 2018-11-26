@@ -56,7 +56,7 @@ func dataSourceNetAppAggr() *schema.Resource {
 				Computed:    true,
 			},
 
-			"size_availabel": &schema.Schema{
+			"size_available": &schema.Schema{
 				Type:        schema.TypeInt,
 				Description: "Available size of aggregate in Byte.",
 				Computed:    true,
@@ -82,7 +82,7 @@ func dataSourceNetAppAggrRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("could not find node [%s], got: %s", nodeID, err)
 	}
 
-	aggrInfo, err := netappsys.AggrGetByName(client, aggrName, nodeInfo.Name)
+	aggrInfo, err := netappsys.AggrGetByName(client, aggrName)
 	if err != nil {
 		return fmt.Errorf(
 			"unable for find aggregate [%s] on node [%s], got: %s",
@@ -100,7 +100,7 @@ func dataSourceNetAppAggrRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("percent_used_physical", aggrInfo.PctUsedPhysical)
 	d.Set("size_total", aggrInfo.SizeTotal)
 	d.Set("size_used", aggrInfo.SizeUsed)
-	d.Set("size_availabel", aggrInfo.SizeAvailable)
+	d.Set("size_available", aggrInfo.SizeAvailable)
 	d.Set("size_reserved", aggrInfo.SizeReserved)
 
 	d.SetId(aggrInfo.UUID)

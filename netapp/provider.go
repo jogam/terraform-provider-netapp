@@ -84,6 +84,7 @@ func Provider() terraform.ResourceProvider {
 			"netapp_ipspace":         resourceNetAppIPSpace(),
 			"netapp_broadcastdomain": resourceNetAppBroadcastDomain(),
 			"netapp_subnet":          resourceNetAppSubnet(),
+			"netapp_svm":             resourceNetAppSVM(),
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{

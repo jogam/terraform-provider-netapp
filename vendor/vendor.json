@@ -285,6 +285,12 @@
 			"revisionTime": "2018-09-28T22:12:48Z"
 		},
 		{
+			"checksumSHA1": "yNyE9MrpDJQAxOxSipSIBgBhuNQ=",
+			"path": "github.com/google/uuid",
+			"revision": "9b3b1e0f5f99ae461456d768e7d301a7acdaa2d8",
+			"revisionTime": "2018-09-17T14:00:05Z"
+		},
+		{
 			"checksumSHA1": "ByRdQMv2yl16W6Tp9gUW1nNmpuI=",
 			"path": "github.com/hashicorp/errwrap",
 			"revision": "8a6fb523712970c966eefc6b39ed2c5e74880354",

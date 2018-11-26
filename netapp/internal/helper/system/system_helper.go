@@ -176,10 +176,8 @@ type AggrInfo struct {
 }
 
 // AggrGetByName to find aggregate for given name
-func AggrGetByName(
-	client *pythonapi.NetAppAPI,
-	name string, nodeName string) (*AggrInfo, error) {
-	request := &AggrGetRequest{Name: name, Nodes: []string{nodeName}}
+func AggrGetByName(client *pythonapi.NetAppAPI, name string) (*AggrInfo, error) {
+	request := &AggrGetRequest{Name: name}
 	resp := AggrInfo{}
 	err := pythonapi.MakeAPICall(client, aggrGetCmd, request, &resp)
 
@@ -187,10 +185,8 @@ func AggrGetByName(
 }
 
 // AggrGetByUUID to find aggregate for given UUID
-func AggrGetByUUID(
-	client *pythonapi.NetAppAPI,
-	uuid string, nodeName string) (*AggrInfo, error) {
-	request := &AggrGetRequest{UUID: uuid, Nodes: []string{nodeName}}
+func AggrGetByUUID(client *pythonapi.NetAppAPI, uuid string) (*AggrInfo, error) {
+	request := &AggrGetRequest{UUID: uuid}
 	resp := AggrInfo{}
 	err := pythonapi.MakeAPICall(client, aggrGetCmd, request, &resp)
 
