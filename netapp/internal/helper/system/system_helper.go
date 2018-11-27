@@ -152,6 +152,48 @@ func PortModify(
 	return err
 }
 
+type PortGroupGetRequest struct {
+	NodeName  string `json:"node"` // <node>
+	GroupName string `json:"name"` // <ifgrp-name>
+}
+
+type PortGroupModifyRequest struct {
+	PortGroupGetRequest
+
+	Mode             string   `json:"mode"`         //<mode>
+	LoadDistribution string   `json:"distribution"` //<distribution-function>
+	Ports            []string `json:"ports"`        //<ports>
+
+	// from port management
+	Up  string `json:"up,omitempty"`  // <is-administrative-up>
+	Mtu string `json:"mtu,omitempty"` // <mtu>
+}
+
+type PortGroupInfo struct {
+	PortGroupModifyRequest
+	pythonapi.ResourceInfo
+
+	GroupLinkStatus string   `json:"participation"` // <port-participation>
+	PortsUp         []string `json:"ports-up"`      // <up-ports>
+	PortsDown       []string `json:"ports-down"`    // <down-ports>
+}
+
+const portGroupGetCmd = "SYS.PORTGROUP.GET"
+
+func PortGroupGetByNames(
+	client *pythonapi.NetAppAPI,
+	nodeName, groupName string) (*PortGroupInfo, error) {
+
+	request := PortGroupGetRequest{NodeName: nodeName, GroupName: groupName}
+	response := PortGroupInfo{}
+	err := pythonapi.MakeAPICall(client, portGroupGetCmd, &request, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
 const aggrGetCmd = "SYS.AGGR.GET"
 
 // AggrGetRequest to get node information from NetApp

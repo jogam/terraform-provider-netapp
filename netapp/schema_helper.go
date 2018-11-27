@@ -32,6 +32,17 @@ func interfaceArrayToStringArray(array []interface{}) []string {
 	return arr
 }
 
+// mergeSchema as found in vsphere terraform provider
+// source: https://github.com/terraform-providers/terraform-provider-vsphere/blob/master/vsphere/internal/helper/structure/structure_helper.go
+func mergeSchema(dst, src map[string]*schema.Schema) {
+	for k, v := range src {
+		if _, ok := dst[k]; ok {
+			panic(fmt.Errorf("conflicting schema key: %s", k))
+		}
+		dst[k] = v
+	}
+}
+
 // ParamDefinition is a simple representation of a terraform
 // data/resource parameter
 type ParamDefinition struct {

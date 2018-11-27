@@ -10,188 +10,90 @@ import (
 )
 
 func resourceNetAppPort() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"node_id": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The managed object ID of the node to set the port up on.",
-				Required:    true,
-				ForceNew:    true,
-			},
+	s := map[string]*schema.Schema{
+		"nic_name": &schema.Schema{
+			Type:        schema.TypeString,
+			Description: "The name of the nic on the device (usually static).",
+			Required:    true,
+			ForceNew:    true,
+		},
 
-			"nic_name": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The name of the nic on the device (usually static).",
-				Required:    true,
-				ForceNew:    true,
-			},
+		"admin_auto": &schema.Schema{
+			Type:        schema.TypeBool,
+			Description: "Set duplex, speed, flow to autonegotiate on this port, e.g. ignore those parameter values (default: true).",
+			Optional:    true,
+		},
 
-			"admin_up": &schema.Schema{
-				Type:        schema.TypeBool,
-				Description: "Change the port status to up if true.",
-				Optional:    true,
-			},
-
-			"admin_mtu": &schema.Schema{
-				Type:        schema.TypeInt,
-				Description: "Configure MTU for this port (default: 1500).",
-				Optional:    true,
-				Default:     1500,
-			},
-
-			"admin_auto": &schema.Schema{
-				Type:        schema.TypeBool,
-				Description: "Set duplex, speed, flow to autonegotiate on this port, e.g. ignore those parameter values (default: true).",
-				Optional:    true,
-			},
-
-			"admin_speed": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The speed settings for this port, must be on of [undef, auto, 10, 100, (10,25,40,100)000].",
-				Optional:    true,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(string)
-					switch v {
-					case
-						"undef", "auto",
-						"10", "100", "1000", "10000",
-						"25000", "40000", "100000":
-						return
-					}
-
-					errs = append(errs, fmt.Errorf("%q must be one of [undef, auto, half, full]", key))
+		"admin_speed": &schema.Schema{
+			Type:        schema.TypeString,
+			Description: "The speed settings for this port, must be on of [undef, auto, 10, 100, (10,25,40,100)000].",
+			Optional:    true,
+			ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+				v := val.(string)
+				switch v {
+				case
+					"undef", "auto",
+					"10", "100", "1000", "10000",
+					"25000", "40000", "100000":
 					return
-				},
-			},
+				}
 
-			"admin_duplex": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The duplex settings for this port, must be on of [undef, auto, half, full].",
-				Optional:    true,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(string)
-					switch v {
-					case "undef", "auto", "half", "full":
-						return
-					}
-
-					errs = append(errs, fmt.Errorf("%q must be one of [undef, auto, half, full]", key))
-					return
-				},
-			},
-
-			"admin_flow": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The flow settings for this port, unchecked but seem to be on of [none, full].",
-				Optional:    true,
-			},
-
-			"autorevert_delay": &schema.Schema{
-				Type:        schema.TypeInt,
-				Description: "For a cluster port, configure the delay in seconds before auto-reverting a LIF to this port.",
-				Optional:    true,
-			},
-
-			"ignore_health": &schema.Schema{
-				Type:        schema.TypeBool,
-				Description: "Ignore port health status on hosted logical interface (true).",
-				Optional:    true,
-			},
-			"ipspace": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Specify the ports associated ipspace <-- should probably not be set here...",
-				Optional:    true,
-			},
-
-			"role": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "specify the port role (deprecated in ONTAP 8.3 --> use ipspace)",
-				Optional:    true,
-			},
-
-			//******************************************************************
-			// status section
-			//******************************************************************
-
-			"status": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The current port status.",
-				Computed:    true,
-			},
-
-			"health": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Current health status for this port.",
-				Computed:    true,
-			},
-
-			"mac_address": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "The ports MAC address.",
-				Computed:    true,
-			},
-
-			"broadcast_domain": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "ports associated broadcast domain.",
-				Computed:    true,
-			},
-
-			"status_ipspace": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Current ports associated ipspace.",
-				Computed:    true,
-			},
-
-			"status_mtu": &schema.Schema{
-				Type:        schema.TypeInt,
-				Description: "Current MTU for this port.",
-				Computed:    true,
-			},
-
-			"status_auto": &schema.Schema{
-				Type:        schema.TypeBool,
-				Description: "Current autonegotiate status on this port.",
-				Computed:    true,
-			},
-
-			"status_speed": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Current speed for this port.",
-				Computed:    true,
-			},
-
-			"status_duplex": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Current duplex status for this port.",
-				Computed:    true,
-			},
-
-			"status_flow": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Current flow status for this port.",
-				Computed:    true,
-			},
-
-			"status_autorevert_delay": &schema.Schema{
-				Type:        schema.TypeInt,
-				Description: "Current delay in seconds before auto-reverting a LIF to this cluster port.",
-				Computed:    true,
-			},
-
-			"status_ignore_health": &schema.Schema{
-				Type:        schema.TypeBool,
-				Description: "Current ignore port health status on hosted logical interface.",
-				Computed:    true,
-			},
-
-			"status_role": &schema.Schema{
-				Type:        schema.TypeString,
-				Description: "Current  port role (deprecated in ONTAP 8.3)",
-				Computed:    true,
+				errs = append(errs, fmt.Errorf("%q must be one of [undef, auto, 10 .. 100000]", key))
+				return
 			},
 		},
 
+		"admin_duplex": &schema.Schema{
+			Type:        schema.TypeString,
+			Description: "The duplex settings for this port, must be on of [undef, auto, half, full].",
+			Optional:    true,
+			ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+				v := val.(string)
+				switch v {
+				case "undef", "auto", "half", "full":
+					return
+				}
+
+				errs = append(errs, fmt.Errorf("%q must be one of [undef, auto, half, full]", key))
+				return
+			},
+		},
+
+		"admin_flow": &schema.Schema{
+			Type:        schema.TypeString,
+			Description: "The flow settings for this port, unchecked but seem to be on of [none, full].",
+			Optional:    true,
+		},
+
+		"autorevert_delay": &schema.Schema{
+			Type:        schema.TypeInt,
+			Description: "For a cluster port, configure the delay in seconds before auto-reverting a LIF to this port.",
+			Optional:    true,
+		},
+
+		"ignore_health": &schema.Schema{
+			Type:        schema.TypeBool,
+			Description: "Ignore port health status on hosted logical interface (true).",
+			Optional:    true,
+		},
+		"ipspace": &schema.Schema{
+			Type:        schema.TypeString,
+			Description: "Specify the ports associated ipspace <-- should probably not be set here...",
+			Optional:    true,
+		},
+
+		"role": &schema.Schema{
+			Type:        schema.TypeString,
+			Description: "specify the port role (deprecated in ONTAP 8.3 --> use ipspace)",
+			Optional:    true,
+		},
+	}
+
+	// add standard port(group) node id, admin_up, admin_mtu and status
+	mergeSchema(s, schemaNodePortGroup())
+
+	return &schema.Resource{
+		Schema: s,
 		Create: resourceNetAppPortCreate,
 		Read:   resourceNetAppPortRead,
 		Update: resourceNetAppPortUpdate,
@@ -226,10 +128,11 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 
+	// read default status and admin_up / admin_mtu
+	schemaNodePortGroupRead(d, pInfo)
+
 	// write back admin parameters if they are set in resource data
 	for key, param := range map[string]ParamDefinition{
-		"admin_up":         ParamDefinition{&pInfo.AdminUp, reflect.Bool},
-		"admin_mtu":        ParamDefinition{&pInfo.AdminMtu, reflect.Int},
 		"autorevert_delay": ParamDefinition{&pInfo.AutoRevertDelay, reflect.Int},
 		"ignore_health":    ParamDefinition{&pInfo.IgnoreHealth, reflect.Bool},
 		"ipspace":          ParamDefinition{&pInfo.IPSpace, reflect.String},
@@ -264,26 +167,6 @@ func resourceNetAppPortRead(d *schema.ResourceData, meta interface{}) error {
 					return err
 				}
 			}
-		}
-	}
-
-	// status write back - computed/info params, e.g. possibly not specified by user
-	for key, param := range map[string]ParamDefinition{
-		"status":                  ParamDefinition{&pInfo.Status, reflect.String},
-		"health":                  ParamDefinition{&pInfo.Health, reflect.String},
-		"mac_address":             ParamDefinition{&pInfo.Mac, reflect.String},
-		"broadcast_domain":        ParamDefinition{&pInfo.BroadCastDomain, reflect.String},
-		"status_ipspace":          ParamDefinition{&pInfo.IPSpace, reflect.String},
-		"status_mtu":              ParamDefinition{&pInfo.Mtu, reflect.Int},
-		"status_auto":             ParamDefinition{&pInfo.Auto, reflect.Bool},
-		"status_speed":            ParamDefinition{&pInfo.Speed, reflect.String},
-		"status_duplex":           ParamDefinition{&pInfo.Duplex, reflect.String},
-		"status_flow":             ParamDefinition{&pInfo.Flow, reflect.String},
-		"status_autorevert_delay": ParamDefinition{&pInfo.AutoRevertDelay, reflect.Int},
-		"status_ignore_health":    ParamDefinition{&pInfo.IgnoreHealth, reflect.Bool},
-		"status_role":             ParamDefinition{&pInfo.Role, reflect.String}} {
-		if err = writeToSchema(d, key, param); err != nil {
-			return err
 		}
 	}
 

@@ -80,6 +80,7 @@ func Provider() terraform.ResourceProvider {
 
 		ResourcesMap: map[string]*schema.Resource{
 			"netapp_port":            resourceNetAppPort(),
+			"netapp_portgroup":       resourceNetAppPortGroup(),
 			"netapp_vlan":            resourceNetAppVlan(),
 			"netapp_ipspace":         resourceNetAppIPSpace(),
 			"netapp_broadcastdomain": resourceNetAppBroadcastDomain(),

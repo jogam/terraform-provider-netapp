@@ -305,6 +305,86 @@ class PortModifyCommand(NetAppCommand):
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
 
+class PortGroupGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'SYS.PORTGROUP.GET'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "name" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'get port group request must have node '
+                + 'and name defined, got: '
+                + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        name = cmd_data_json["name"]
+        cmd = "net-port-ifgrp-get"
+
+        call = NaElement(cmd)
+
+        call.child_add_string("ifgrp-name", name)
+        call.child_add_string("node", node)
+
+        des_attr = NaElement("desired-attributes")
+        npgi = NaElement("net-ifgrp-info")
+
+        npgi.child_add_string("node","<node>")
+        npgi.child_add_string("ifgrp-name","<ifgrp-name>")
+        npgi.child_add_string("mode","<mode>")
+        npgi.child_add_string("distribution-function","<distribution-function>")
+
+        npgi.child_add_string("port-participation","<port-participation>")
+
+        ps = NaElement("ports")
+        ps.child_add_string("lif-bindable","<lif-bindable>")
+        npgi.child_add(ps)
+
+        psd = NaElement("down-ports")
+        psd.child_add_string("lif-bindable","<lif-bindable>")
+        npgi.child_add(psd)
+
+        psu = NaElement("up-ports")
+        psu.child_add_string("lif-bindable","<lif-bindable>")
+        npgi.child_add(psu)
+
+        des_attr.child_add(npgi)
+        call.child_add(des_attr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, 
+            cmd + ": " + node + ":" + name)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        if not resp.child_get("attributes"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no port group data found in: '
+                + resp.sprintf())
+
+        pg_info = resp.child_get("attributes").children_get()[0]
+
+        dd = {
+            "node": self._GET_STRING(pg_info, "node"),
+            "name": self._GET_STRING(pg_info, "ifgrp-name"),
+
+            "mode": self._GET_STRING(pg_info, "mode"),
+            "distribution": self._GET_STRING(pg_info, "distribution-function"),
+            "participation": self._GET_STRING(pg_info, "port-participation"),
+
+            "ports": self._GET_CONTENT_LIST(pg_info, "ports"),
+            "ports_down": self._GET_CONTENT_LIST(pg_info, "down-ports"),
+            "ports_up": self._GET_CONTENT_LIST(pg_info, "up-ports"),
+        }
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
 class AggrGetCommand(NetAppCommand):
 
     @classmethod

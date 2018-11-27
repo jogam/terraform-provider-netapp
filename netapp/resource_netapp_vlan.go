@@ -15,7 +15,7 @@ func resourceNetAppVlan() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"parent_id": &schema.Schema{
 				Type:        schema.TypeString,
-				Description: "The managed object ID of the port/interface this VLAN belongs to.",
+				Description: "The managed object ID of the port(group) this VLAN belongs to.",
 				Required:    true,
 				ForceNew:    true,
 			},
