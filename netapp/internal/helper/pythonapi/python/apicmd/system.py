@@ -256,6 +256,59 @@ class PortGetCommand(NetAppCommand):
         return {
             'success' : True, 'errmsg': '', 'data': dd}
 
+class PortFindByPatternCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'SYS.PORT.FIND.PATTERN'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "port" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'find port by pattern request must have'
+                + ' node and port defined, got: '
+                + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        port = cmd_data_json["port"]
+        cmd = "net-port-get-iter"
+
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+        qe_npi = NaElement("net-port-info")
+        qe_npi.child_add_string("node", node)
+        qe_npi.child_add_string("port", port)
+        qe.child_add(qe_npi)
+        call.child_add(qe)
+
+        des_attr = NaElement("desired-attributes")
+        npi = NaElement("net-port-info")
+        npi.child_add_string("port","<port>")
+
+        des_attr.child_add(npi)
+        call.child_add(des_attr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, 
+            cmd + ": " + node + ":" + port)
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        ports = []
+        if resp.child_get("attributes-list"):
+            for port_info in resp.child_get("attributes-list").children_get():
+                ports.append(self._GET_STRING(port_info, "port"))
+
+        return {
+            'success' : True, 'errmsg': '', 
+            'data': { 'ports': ports}
+        }
+
 class PortModifyCommand(NetAppCommand):
     __cmd_mapping = {
         "duplex": "administrative-duplex",
@@ -374,16 +427,164 @@ class PortGroupGetCommand(NetAppCommand):
             "name": self._GET_STRING(pg_info, "ifgrp-name"),
 
             "mode": self._GET_STRING(pg_info, "mode"),
-            "distribution": self._GET_STRING(pg_info, "distribution-function"),
-            "participation": self._GET_STRING(pg_info, "port-participation"),
+            "dist": self._GET_STRING(pg_info, "distribution-function"),
+            "part": self._GET_STRING(pg_info, "port-participation"),
 
             "ports": self._GET_CONTENT_LIST(pg_info, "ports"),
             "ports_down": self._GET_CONTENT_LIST(pg_info, "down-ports"),
-            "ports_up": self._GET_CONTENT_LIST(pg_info, "up-ports"),
+            "ports_up": self._GET_CONTENT_LIST(pg_info, "up-ports")
         }
 
         return {
             'success' : True, 'errmsg': '', 'data': dd}
+
+class PortGroupCreateCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "SYS.PORTGROUP.CREATE"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "name" not in cmd_data_json or
+                "mode" not in cmd_data_json or
+                "dist" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "port group create commands must"
+                + " have node, name, mode"
+                + " and distribution defined"
+                + ", got: " + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        name = cmd_data_json["name"]
+        mode = cmd_data_json["mode"]
+        dist = cmd_data_json["dist"]
+
+        cmd = "net-port-ifgrp-create"
+        call = NaElement(cmd)
+
+        call.child_add_string("distribution-function", dist)
+        call.child_add_string("ifgrp-name", name)
+        call.child_add_string("mode", mode)
+        call.child_add_string("node", node)
+        call.child_add_string("return-record", False)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + node
+            + " [" + name + "]")
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
+class PortGroupPortModifyCommand(NetAppCommand):
+
+    @classmethod
+    def _get_cmd_type(cls):
+        raise NotImplementedError('must be implemented by subclass')
+
+    @classmethod
+    def get_name(cls):
+        # need to implement, otherwise find commands fails!
+        return "SYS.PORTGROUP.port.modify"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "name" not in cmd_data_json or
+                "ports" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "port group port "
+                + self._get_cmd_type() + " commands must"
+                + " have node, name and ports defined"
+                + ", got: " + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        name = cmd_data_json["name"]
+        ports = cmd_data_json["ports"]
+        cmd = (
+            "net-port-ifgrp-"
+            + self._get_cmd_type() + "-port")
+
+        # ifgrp only allows add/remove of single port...
+        for port in ports:
+            call = NaElement(cmd)
+
+            call.child_add_string("ifgrp-name", name)
+            call.child_add_string("node", node)
+            call.child_add_string("port", port)
+
+            resp, err_resp = self._INVOKE_CHECK(
+                server, call, cmd + ": " + node 
+                + " [" + name + "]" 
+                + self._get_cmd_type() + " " + port)
+            if err_resp:
+                return err_resp
+
+            LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
+class PortGroupPortAddCommand(PortGroupPortModifyCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "SYS.PORTGROUP.PORT.ADD"
+
+    @classmethod
+    def _get_cmd_type(cls):
+        return "add"
+
+class PortGroupPortRemoveCommand(PortGroupPortModifyCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "SYS.PORTGROUP.PORT.REMOVE"
+
+    @classmethod
+    def _get_cmd_type(cls):
+        return "remove"
+
+class PortGroupDeleteCommand(NetAppCommand):
+ 
+    @classmethod
+    def get_name(cls):
+        return "SYS.PORTGROUP.DELETE"
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "node" not in cmd_data_json or
+                "name" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                "port group delete command must"
+                + " have node and name defined"
+                + ", got: " + str(cmd_data_json))
+
+        node = cmd_data_json["node"]
+        name = cmd_data_json["name"]
+
+        cmd = "net-port-ifgrp-destroy"
+        call = NaElement(cmd)
+
+        call.child_add_string("ifgrp-name", name)
+        call.child_add_string("node", node)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": " + node
+            + " [" + name + "]")
+        if err_resp:
+            return err_resp
+
+        LOGGER.debug(resp.sprintf())
+
+        return self._CREATE_EMPTY_RESPONSE(
+            True, "")
+
 
 class AggrGetCommand(NetAppCommand):
 

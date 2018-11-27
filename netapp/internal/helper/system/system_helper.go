@@ -1,6 +1,8 @@
 package system
 
 import (
+	"fmt"
+
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
 )
 
@@ -148,8 +150,26 @@ func PortModify(
 	request *PortModifyRequest) error {
 
 	resp := pythonapi.EmptyResponse{}
-	err := pythonapi.MakeAPICall(client, portModifyCmd, request, &resp)
-	return err
+	return pythonapi.MakeAPICall(client, portModifyCmd, request, &resp)
+}
+
+type PortFindResult struct {
+	Names []string `json:"ports"`
+}
+
+const portFindByPatternCmd = "SYS.PORT.FIND.PATTERN"
+
+func PortFindByNamePattern(
+	client *pythonapi.NetAppAPI,
+	nodeName, pattern string) (*PortFindResult, error) {
+	request := &PortGetRequest{NodeName: nodeName, PortName: pattern}
+	response := &PortFindResult{}
+	err := pythonapi.MakeAPICall(client, portFindByPatternCmd, request, response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 type PortGroupGetRequest struct {
@@ -160,22 +180,18 @@ type PortGroupGetRequest struct {
 type PortGroupModifyRequest struct {
 	PortGroupGetRequest
 
-	Mode             string   `json:"mode"`         //<mode>
-	LoadDistribution string   `json:"distribution"` //<distribution-function>
-	Ports            []string `json:"ports"`        //<ports>
-
-	// from port management
-	Up  string `json:"up,omitempty"`  // <is-administrative-up>
-	Mtu string `json:"mtu,omitempty"` // <mtu>
+	Mode             string   `json:"mode"`  //<mode>
+	LoadDistribution string   `json:"dist"`  //<distribution-function>
+	Ports            []string `json:"ports"` //<ports>
 }
 
 type PortGroupInfo struct {
 	PortGroupModifyRequest
 	pythonapi.ResourceInfo
 
-	GroupLinkStatus string   `json:"participation"` // <port-participation>
-	PortsUp         []string `json:"ports-up"`      // <up-ports>
-	PortsDown       []string `json:"ports-down"`    // <down-ports>
+	GroupLinkStatus string   `json:"part"`       // <port-participation>
+	PortsDown       []string `json:"ports_down"` // <down-ports>
+	PortsUp         []string `json:"ports_up"`   // <up-ports>
 }
 
 const portGroupGetCmd = "SYS.PORTGROUP.GET"
@@ -192,6 +208,56 @@ func PortGroupGetByNames(
 	}
 
 	return &response, nil
+}
+
+const portGroupCreateCmd = "SYS.PORTGROUP.CREATE"
+
+func PortGroupCreate(
+	client *pythonapi.NetAppAPI,
+	request *PortGroupModifyRequest) error {
+	resp := pythonapi.EmptyResponse{}
+	return pythonapi.MakeAPICall(client, portGroupCreateCmd, request, &resp)
+}
+
+const portGroupPortAddCmd = "SYS.PORTGROUP.PORT.ADD"
+const portGroupPortRemoveCmd = "SYS.PORTGROUP.PORT.REMOVE"
+
+func PortGroupPortsModify(
+	client *pythonapi.NetAppAPI,
+	node, name string,
+	portNames []string,
+	add bool, remove bool) error {
+
+	if (add && remove) || (!add && !remove) {
+		return fmt.Errorf(
+			"modify port group [%s] ports must either add or remove"+
+				" got [add,remove]: [%v,%v]",
+			name, add, remove)
+	}
+
+	req := &PortGroupModifyRequest{Ports: portNames}
+	req.NodeName = node
+	req.GroupName = name
+
+	resp := &pythonapi.EmptyResponse{}
+	var err error
+	if add {
+		err = pythonapi.MakeAPICall(client, portGroupPortAddCmd, req, resp)
+	} else {
+		err = pythonapi.MakeAPICall(client, portGroupPortRemoveCmd, req, resp)
+	}
+
+	return err
+}
+
+const portGroupDeleteCmd = "SYS.PORTGROUP.DELETE"
+
+func PortGroupDelete(
+	client *pythonapi.NetAppAPI,
+	nodeName, groupName string) error {
+	req := &PortGroupGetRequest{NodeName: nodeName, GroupName: groupName}
+	resp := pythonapi.EmptyResponse{}
+	return pythonapi.MakeAPICall(client, portGroupDeleteCmd, req, &resp)
 }
 
 const aggrGetCmd = "SYS.AGGR.GET"
