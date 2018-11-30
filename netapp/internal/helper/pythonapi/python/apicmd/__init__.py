@@ -36,7 +36,7 @@ def import_submodules(package, recursive=True):
     if isinstance(package, str):
         package = importlib.import_module(package)
     results = {}
-    for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
+    for _, name, is_pkg in pkgutil.walk_packages(package.__path__):
         full_name = package.__name__ + '.' + name
         LOGGER.debug('importing module [%s]', full_name)
         results[full_name] = importlib.import_module(full_name)
@@ -152,6 +152,43 @@ class NetAppCommand(object):
         '''
         raise NotImplementedError('must be implemented by subclass')
 
+class NetAppSvmCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'NETAPPCMD.SVM'
+
+    def svm_execute(self, svm, cmd_data_json):
+        '''
+        execute the command on svm/vserver
+
+        :param NaServer svm: 
+            the NetApp server to use for invoking elements
+        :param json cmd_data_json:
+            the command input data as received via gRPC
+        :return json:
+            the command execution result, must contain:
+            {
+                'success': bool (True: all good),
+                'errmsg': string should be empty string if all good
+                'data': the command exec result {}
+            }
+        '''
+        raise NotImplementedError('must be implemented by subclass')    
+
+    def execute(self, server, cmd_data_json):
+        if not 'svm_name' in cmd_data_json:
+            return self._CREATE_FAIL_RESPONSE(
+                'NetAPP SVM command must have '
+                + 'SVM name [svm_name] defined, got: '
+                + str(cmd_data_json))
+
+        # set the svm/vserver name in the NaServer object
+        server.set_vserver(cmd_data_json.pop('svm_name'))
+
+        # return the svm_execute result of the svm/vserver API call
+        return self.svm_execute(server, cmd_data_json)
+
 
 # import all commands defined in sub modules
 # NOTE: must be done after NetAppCommand definition,
@@ -179,8 +216,8 @@ class NetAppCommandExecutor(object):
 
         # these are static for now
         self.server_type = 'FILER'
-        self.transport_type = 'HTTP'
-        self.server_port = 80
+        self.transport_type = 'HTTPS'
+        self.server_port = 443
         self.connect_style = 'LOGIN'
 
     def __create_server(self, testing_active):

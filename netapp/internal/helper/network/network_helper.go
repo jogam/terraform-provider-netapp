@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
 )
@@ -188,6 +189,8 @@ func BcDomainWaitForInProgressDone(client *pythonapi.NetAppAPI, name string) (st
 		if bcInfo.PortUpdateStatus != "in_progress" {
 			break
 		}
+
+		time.Sleep(500 * time.Millisecond) // API timeout currently set to 800ms!
 	}
 
 	return bcInfo.PortUpdateStatus, nil

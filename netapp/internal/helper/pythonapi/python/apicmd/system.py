@@ -297,7 +297,7 @@ class PortFindByPatternCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        #LOGGER.debug(resp.sprintf())
 
         ports = []
         if resp.child_get("attributes-list"):
@@ -413,7 +413,7 @@ class PortGroupGetCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        #LOGGER.debug(resp.sprintf())
 
         if not resp.child_get("attributes"):
             return self._CREATE_FAIL_RESPONSE(
@@ -476,7 +476,7 @@ class PortGroupCreateCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        #LOGGER.debug(resp.sprintf())
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
@@ -525,7 +525,7 @@ class PortGroupPortModifyCommand(NetAppCommand):
             if err_resp:
                 return err_resp
 
-            LOGGER.debug(resp.sprintf())
+            #LOGGER.debug(resp.sprintf())
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
@@ -580,7 +580,7 @@ class PortGroupDeleteCommand(NetAppCommand):
         if err_resp:
             return err_resp
 
-        LOGGER.debug(resp.sprintf())
+        #LOGGER.debug(resp.sprintf())
 
         return self._CREATE_EMPTY_RESPONSE(
             True, "")
@@ -684,6 +684,83 @@ class AggrGetCommand(NetAppCommand):
         add_vco = agg_info.child_get("aggr-volume-count-attributes")
         if add_vco:
             dd["flexvol_cnt"] = self._GET_INT(add_vco, "flexvol-count")
+
+        return {
+            'success' : True, 'errmsg': '', 'data': dd}
+
+    
+class JobGetCommand(NetAppCommand):
+
+    @classmethod
+    def get_name(cls):
+        return 'SYS.JOB.GET'
+
+    def execute(self, server, cmd_data_json):
+        if (
+                "id" not in cmd_data_json):
+            return self._CREATE_FAIL_RESPONSE(
+                'get job request must have '
+                + 'id defined, got: '
+                + str(cmd_data_json))
+
+        jid = cmd_data_json['id']
+
+        cmd = "job-get-iter"
+        call = NaElement(cmd)
+
+        qe = NaElement("query")
+
+        qi_ji = NaElement("job-info")
+        qi_ji.child_add_string("job-id", jid)
+
+        qe.child_add(qi_ji)
+        call.child_add(qe)
+
+        des_attr = NaElement("desired-attributes")
+
+        ji = NaElement("job-info")
+
+        ji.child_add_string("job-id","<job-id>")
+        ji.child_add_string("job-vserver","<job-vserver>")
+
+        ji.child_add_string("job-completion","<job-completion>")
+        ji.child_add_string("job-state","<job-state>")
+        ji.child_add_string("job-status-code","<job-status-code>")
+
+        des_attr.child_add(ji)
+        call.child_add(des_attr)
+
+        resp, err_resp = self._INVOKE_CHECK(
+            server, call, cmd + ": <-- "
+            + str(cmd_data_json))
+
+        #LOGGER.debug(resp.sprintf())
+
+        if err_resp:
+            return err_resp
+
+        job_cnt = self._GET_INT(resp, 'num-records')
+        if job_cnt != 1:
+            # too many jobs found for query
+            return self._CREATE_FAIL_RESPONSE(
+                'too many jobs found for'
+                + ' query: [' + str(cmd_data_json) 
+                + '] result is: '
+                + resp.sprintf())
+
+        if not resp.child_get("attributes-list"):
+            return self._CREATE_FAIL_RESPONSE(
+                'no job info data found in: '
+                + resp.sprintf())
+
+        job_info = resp.child_get("attributes-list").children_get()[0]
+        dd = {
+            'id': self._GET_INT(job_info, "job-id"),
+            'svm': self._GET_STRING(job_info, "job-vserver"),
+            'msg': self._GET_STRING(job_info, "job-completion"),
+            'status': self._GET_STRING(job_info, "job-state"),
+            'errno': self._GET_INT(job_info, "job-status-code")
+        }
 
         return {
             'success' : True, 'errmsg': '', 'data': dd}

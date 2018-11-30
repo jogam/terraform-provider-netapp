@@ -2,6 +2,7 @@ package system
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jogam/terraform-provider-netapp/netapp/internal/helper/pythonapi"
 )
@@ -299,4 +300,56 @@ func AggrGetByUUID(client *pythonapi.NetAppAPI, uuid string) (*AggrInfo, error) 
 	err := pythonapi.MakeAPICall(client, aggrGetCmd, request, &resp)
 
 	return &resp, err
+}
+
+type JobGetRequest struct {
+	ID  int    `json:"id,omitempty"`  // <job-id>
+	SVM string `json:"svm,omitempty"` // <job-vserver>
+}
+
+type JobInfo struct {
+	pythonapi.ResourceInfo
+	JobGetRequest
+
+	Message string `json:"msg"`    // <job-completion>	contains error message if status-code != 0, e.g. result-error-message
+	Status  string `json:"status"` // <job-state> eq. result-status to some degree...
+	ErrNo   int    `json:"errno"`  // <job-status-code> eq. result-error-code and is 0 if all good
+}
+
+const jobGetCmd = "SYS.JOB.GET"
+
+func JobGetByID(client *pythonapi.NetAppAPI, id int) (*JobInfo, error) {
+	request := &JobGetRequest{ID: id}
+	response := &JobInfo{}
+	err := pythonapi.MakeAPICall(client, jobGetCmd, request, response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func JobWaitDone(client *pythonapi.NetAppAPI, id int) (*JobInfo, error) {
+	var jInfo *JobInfo
+	var err error
+	waiting := true
+	for waiting {
+		// wait first <-- API timeout currently set to 800ms!
+		time.Sleep(500 * time.Millisecond)
+
+		// get the job status
+		jInfo, err = JobGetByID(client, id)
+		if err != nil {
+			return nil, err
+		}
+
+		// check for status that indicates termination
+		switch jInfo.Status {
+		case "success", "failure", "error", "quit", "dead":
+			waiting = false
+			break
+		}
+	}
+
+	return jInfo, nil
 }

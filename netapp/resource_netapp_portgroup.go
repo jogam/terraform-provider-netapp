@@ -263,14 +263,14 @@ func resourceNetAppPortGroupRead(d *schema.ResourceData, meta interface{}) error
 func resourceNetAppPortGroupUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*NetAppClient).api
 
-	// Enable partial state mode
-	d.Partial(true)
-
 	pgID := d.Id()
 	nodeName, portName, err := getNodePortNameFromPortID(pgID)
 	if err != nil {
 		return fmt.Errorf("could not get node / name from ID [%s], got: %s", pgID, err)
 	}
+
+	// Enable partial state mode
+	d.Partial(true)
 
 	// check port changes and update accordingly
 	if d.HasChange("ports") {
